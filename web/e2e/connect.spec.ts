@@ -43,7 +43,9 @@ test('badges and color come with info even when /profiles fails', async ({ page 
   const header = page.locator('header')
   await expect(header.getByText('READ-ONLY', { exact: true })).toBeVisible()
   // The color dot, the one mark in the link to the connections.
-  const dot = header.getByTitle('All connections', { exact: true }).locator('span')
+  const dot = header
+    .getByTitle('All connections', { exact: true })
+    .locator('span[aria-hidden="true"]')
   await expect(dot).toHaveCSS('background-color', 'rgb(221, 51, 51)')
 })
 

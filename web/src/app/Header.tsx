@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, PanelLeft, PanelRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { api } from '../lib/api'
+import { api, profileLabel } from '../lib/api'
 import { batches } from '../lib/batchStore'
 import { touchedAttributes } from '../lib/changes'
 import { ColorDot, ProfileBadges } from '../ui/Badge'
@@ -45,16 +45,17 @@ export function Header({ extra }: { extra?: ReactNode }) {
   const disconnect = useDisconnect()
   // A fixed bind DN is the profile's, not a person's: only userLogin names who signed in.
   const profiles = useQuery({ queryKey: ['profiles'], queryFn: () => api.profiles() })
-  const userLogin = profiles.data?.find((p) => p.name === ws.conn)?.userLogin
+  const profile = profiles.data?.find((p) => p.name === ws.conn)
+  const userLogin = profile?.userLogin
   return (
     <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border bg-chrome px-2">
       <Link
         to="/"
         title="All connections"
-        className="flex shrink-0 items-center gap-1.5 rounded px-1 font-medium hover:bg-hover"
+        className="flex min-w-0 max-w-xs shrink-0 items-center gap-1.5 rounded px-1 font-medium hover:bg-hover"
       >
         <ColorDot color={ws.info.color} />
-        {ws.conn}
+        <span className="truncate">{profileLabel({ name: ws.conn, label: profile?.label })}</span>
       </Link>
       <span className="flex shrink-0 gap-1 empty:hidden">
         <ProfileBadges profile={ws.info} />

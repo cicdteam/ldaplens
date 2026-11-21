@@ -101,3 +101,26 @@ test('an untrusted certificate shows its chain; Trust this CA and connect; the n
   await expect(page).toHaveURL(/\/c\/ad-trust(?:[/?#]|$)/)
   await expect(page.getByRole('treeitem', exact(AD_BASE))).toBeVisible()
 })
+
+test('a saved connection with a label shows the label, the name under it', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', exact('New connection')).click()
+  let form = page.getByRole('dialog', exact('New connection'))
+  await form.getByLabel('Name').fill('labeled-lab')
+  await form.getByLabel(/^Label/).fill('  My test lab  ')
+  await form.getByLabel('URL').fill('ldap://127.0.0.1:1390')
+  await form.getByRole('button', exact('Save')).click()
+  await expect(form).toHaveCount(0)
+  const item = page.getByRole('listitem').filter({ hasText: 'My test lab' })
+  await expect(item).toContainText('labeled-lab · ldap://127.0.0.1:1390')
+
+  // The server trimmed it; clearing it brings the name back.
+  await item.getByRole('button', exact('Edit My test lab')).click()
+  form = page.getByRole('dialog', exact('Edit My test lab'))
+  await expect(form.getByLabel(/^Label/)).toHaveValue('My test lab')
+  await form.getByLabel(/^Label/).fill('')
+  await form.getByRole('button', exact('Save')).click()
+  await expect(form).toHaveCount(0)
+  await expect(page.getByRole('button', exact('Edit labeled-lab'))).toBeVisible()
+  await expect(page.getByText('My test lab')).toHaveCount(0)
+})

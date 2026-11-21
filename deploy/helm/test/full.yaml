@@ -13,6 +13,7 @@ session:
   maxAge: 4h
 connections:
   - name: people
+    label: Corp people (sign in with your uid)
     url: ldaps://ldap.corp.example:636
     baseDN: dc=corp,dc=example
     bindDNTemplate: uid={user},ou=people,dc=corp,dc=example

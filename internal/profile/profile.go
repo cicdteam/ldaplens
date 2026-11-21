@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -40,13 +42,19 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 // userPlaceholder is replaced by the username in BindDNTemplate.
 const userPlaceholder = "{user}"
 
+// maxLabelLen is the longest Label, in characters.
+const maxLabelLen = 80
+
 // Profile describes how to connect to one LDAP server.
 //
 // Fields tagged json:"-" can only come from the config file: the HTTP API
 // must never be able to point the server at a local file or environment
 // variable.
 type Profile struct {
-	Name               string        `yaml:"name" json:"name"`
+	Name string `yaml:"name" json:"name"`
+	// Label is what the UI shows for the profile, Name when empty; Name
+	// stays the identifier in URLs and the API.
+	Label              string        `yaml:"label" json:"label,omitempty"`
 	URL                string        `yaml:"url" json:"url"`
 	StartTLS           bool          `yaml:"startTLS" json:"startTLS"`
 	BaseDN             string        `yaml:"baseDN" json:"baseDN,omitempty"`
@@ -67,6 +75,10 @@ type Profile struct {
 func (p *Profile) normalize() error {
 	if !namePattern.MatchString(p.Name) {
 		return fmt.Errorf("%w: name %q must match %s", ErrInvalid, p.Name, namePattern)
+	}
+	p.Label = strings.TrimSpace(p.Label)
+	if utf8.RuneCountInString(p.Label) > maxLabelLen || strings.ContainsFunc(p.Label, unicode.IsControl) {
+		return fmt.Errorf("%w: %s: label must be at most %d characters, without control characters", ErrInvalid, p.Name, maxLabelLen)
 	}
 	u, err := url.Parse(p.URL)
 	if err != nil {

@@ -201,6 +201,43 @@ func TestNormalizeTemplate(t *testing.T) {
 	}
 }
 
+func TestNormalizeLabel(t *testing.T) {
+	tests := []struct {
+		name        string
+		label       string
+		want        string
+		wantInvalid bool
+	}{
+		{name: "none", label: "", want: ""},
+		{name: "spaces and parentheses", label: "CICD Team (fictional organization catalog)", want: "CICD Team (fictional organization catalog)"},
+		{name: "trimmed", label: "  Corp AD \t", want: "Corp AD"},
+		{name: "only spaces", label: "   ", want: ""},
+		{name: "non-ASCII", label: "Ádám's Директория", want: "Ádám's Директория"},
+		{name: "80 characters", label: strings.Repeat("я", 80), want: strings.Repeat("я", 80)},
+		{name: "81 characters", label: strings.Repeat("я", 81), wantInvalid: true},
+		{name: "newline", label: "a\nb", wantInvalid: true},
+		{name: "control character", label: "a\x1bb", wantInvalid: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := Profile{Name: "x", URL: "ldap://h", Label: tc.label}
+			err := p.normalize()
+			if tc.wantInvalid {
+				if !errors.Is(err, ErrInvalid) {
+					t.Errorf("normalize(label %q) = %v, want ErrInvalid", tc.label, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalize(label %q) = %v, want nil", tc.label, err)
+			}
+			if p.Label != tc.want {
+				t.Errorf("normalize(label %q): Label = %q, want %q", tc.label, p.Label, tc.want)
+			}
+		})
+	}
+}
+
 func TestBindDNFor(t *testing.T) {
 	for _, tc := range []struct {
 		template, username, want string

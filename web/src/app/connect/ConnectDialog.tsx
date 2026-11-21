@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState } from 'react'
-import { api, isApiError, passwordHint } from '../../lib/api'
+import { api, isApiError, passwordHint, profileLabel } from '../../lib/api'
 import type { Profile } from '../../lib/types'
 import { ErrorBanner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
@@ -68,7 +68,7 @@ export function ConnectDialog({
     <Dialog
       open
       onOpenChange={(open) => !open && onClose()}
-      title={`Connect to ${profile.name}`}
+      title={`Connect to ${profileLabel(profile)}`}
       description={profile.url}
       wide={certs.length > 0}
     >

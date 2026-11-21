@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Pencil, Plus, Server } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { api } from '../../lib/api'
+import { api, profileLabel } from '../../lib/api'
 import { safeNext } from '../../lib/nav'
 import type { Profile } from '../../lib/types'
 import { Badge, ColorDot, ProfileBadges } from '../../ui/Badge'
@@ -77,10 +77,12 @@ export function ConnectPage() {
                 <ColorDot color={p.color} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 font-medium">
-                    {p.name}
+                    {profileLabel(p)}
                     {p.connected && <Badge tone="ok">CONNECTED</Badge>}
                   </span>
-                  <span className="block truncate font-mono text-xs text-muted">{p.url}</span>
+                  <span className="block truncate font-mono text-xs text-muted">
+                    {[p.label && p.name, p.url].filter(Boolean).join(' · ')}
+                  </span>
                 </span>
                 <span className="flex gap-1 empty:hidden">
                   <ProfileBadges profile={p} />
@@ -90,7 +92,7 @@ export function ConnectPage() {
                 <Button
                   size="icon"
                   variant="ghost"
-                  aria-label={`Edit ${p.name}`}
+                  aria-label={`Edit ${profileLabel(p)}`}
                   title="Edit"
                   onClick={() => setEditing(p)}
                 >
