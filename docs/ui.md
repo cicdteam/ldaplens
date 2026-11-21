@@ -4,167 +4,117 @@ How the UI behaves: browsing, search, the inspector, editing, Review/Apply and L
 
 ## Using the UI
 
-- **Connections** (`/`): profiles from `connections.yaml` (marked `yaml`) and
-  ones saved in the UI (local mode; server mode shows less, see [Two
-  modes](configuration.md#two-modes)). Passwords are never stored: a profile with a bind DN
-  but no `passwordEnv`/`passwordFile` asks for one at connect time, and so
-  does one whose configured password the server rejects or cannot read. A
-  `bindDNTemplate` profile asks for a username and a password (see [Per-user
-  login](deployment.md#per-user-login)). An
-  untrusted TLS certificate shows its chain and fingerprints; "Trust this CA
-  and connect" stores it in a UI profile (for a yaml profile, copy the PEM into `caPEM` or
-  point `caFile` at it).
-- **Layout**: the tree on the left and the entry card on the right. A search,
-  or List children, opens a list pane between them, and the card stays
-  beside it. Up and Down in the list move the card through the rows; Down in
-  the search bar moves into the list, on its selected row or else the first.
-  The list's × button, or Esc while focus is in the list, closes it: the entry
-  in the card, its Edit mode and the staged changes stay, the URL keeps only
-  the entry, and focus moves to the card's heading (to the tree with no entry
-  open). Pane sizes are
-  remembered separately with the list and without it. With no entry
-  selected, the card says so. Invisible and direction-changing characters in
-  names and DNs (a right-to-left override, a zero-width space) show as
-  `<U+XXXX>`, such as `<U+202E>`; Copy DN, LDIF and writes use the real value.
-- **List children** (the list icon on a container in the tree, or "List
-  children of the current entry" in the command palette): lists the entries
-  one level under it, with the default columns. The search bar keeps its own
-  text, base and scope, so a name typed next still searches under its base.
-- **Tree** (left): lazy, keyboard-driven (arrows, Home/End, `*`, type-ahead).
-  Each row shows its RDN; an account row (`uid=` or `sAMAccountName=`) also
-  shows the person's name, muted: `displayName`, else `cn`. A click on a
-  container selects it and expands or collapses it; the chevron only expands
-  or collapses it, and so do Right and Left. Collapsing a parent of the
-  selected entry marks that parent instead and keeps the card. A container shows its List
-  children icon while the pointer is over its row, and on the row with
-  keyboard focus; Shift+Enter on the row does the same. "Filter loaded
-  entries" above the tree narrows the rows of open branches to the ones whose
-  RDN value or name holds the text (any case), with their parents; the
-  selected entry always stays. It never asks the server (the search bar
-  does). Next to it, Reload the tree from the server and Collapse the tree
-  (the header's tree button opens it again). A container shows its first
-  2000 children; a bigger one ends with "More entries…", which lists its
-  children like List children.
-- **Search bar** (header): one line that takes three kinds of input; Enter
-  runs it.
-  - Plain text (`doe`, `John Doe`) searches by name: `cn` and `displayName`
-    containing it, `uid`, `sAMAccountName` and `mail` starting with it. The
-    bar, Recent and Saved show the name, not the filter it runs.
-  - Text with `=` or `(` is an RFC 4515 filter (`uid=jdoe`,
-    `(&(objectClass=person)(cn=a*))`, `memberOf=cn=devs,ou=groups,dc=example,dc=org`),
-    with highlighting, completion from the schema inside parentheses and inline
-    errors. Empty text matches everything. A filter longer than one line opens
-    down over the panels while the bar has focus.
-  - A DN under the connection's base DN, in any letter case, opens that entry.
-    A value with an unescaped `=` (the `memberOf=...` above) keeps it a filter.
+Every view has a URL (`/c/<profile>/entry?dn=...`,
+`/c/<profile>/search?filter=...`), so links and reloads work.
 
-  The chip with the base DN and the scope (subtree, one level or base) opens
-  the search base, the scope, a button that uses the selected entry as the
-  base, and the result columns, picked from the schema's attribute names. Next
-  to it, the filter builder and the recent and saved searches.
-- **Search results** (list pane): the toolbar shows the number of entries,
-  the filter that ran (its tooltip adds the scope and the base), Columns,
-  Export and Close. Columns picks the columns from the schema's attribute
-  names; closing it runs the search again with them. Export saves the loaded
-  rows as CSV or LDIF. Each row leads with the entry's name:
-  `displayName`, else `cn`, else the value of its RDN. The other columns are
-  `uid` (`sAMAccountName` on Active Directory) and `mail` until you pick
-  others. The header and the rows share one column layout, so they always
-  line up; more columns than the pane fits scroll sideways together. A row's
-  tooltip is its DN, and ⌘C / Ctrl+C in the list copies the DN of the
-  selected row (unless text is selected). A search also asks for
-  `displayName` and `cn` to show the name; an LDIF export holds only the DN
-  and the picked columns.
+### Connections
 
-  A search returns at most a limit of entries in one request: 500, or the
-  search API's `sizeLimit`, up to 5000. The response says `more` when the search matches more. Nothing is kept on the
-  server between requests, so "Load more" runs the search again with the
-  next limit: 1000, then 2000, then 5000; the rows shown stay until the
-  bigger answer arrives. If it fails, the error offers Retry and "Show the
-  first N", which goes back to the rows shown before. Running a search
-  again starts over at 500. A search that matches more than 5000 entries shows
-  the first 5000 with the note "Showing the first 5,000 entries; refine the
-  search to see the rest": narrow the filter or the base DN. Sorting by
-  column and export to CSV or LDIF act on the rows loaded. A search the
-  server cut with its own size or time
-  limit, or one past ldaplens's cap of 64 MiB of attribute values, shows
-  what arrived and is marked truncated ("The search stopped early"). One
-  server message (an entry) over 64 MiB fails the request instead. Recent and saved
-  searches are kept per connection in the browser; the same popover lists
-  Examples (people, groups, OUs, or disabled accounts on Active Directory). A filter can test a
-  password or secret attribute for presence (`(userPassword=*)`) but not
-  match on its values: equality, substring, ordering, approximate and
-  extensible matches on one, and extensible matches without an attribute
-  type (`(:octetStringMatch:=x)`, which test every attribute), are refused
-  with 400 `secret_filter`.
-- **Entry card** (right): the header says who the entry is. A person shows
-  their initials, other entries the icon of their kind (group, unit, domain).
-  The title is the entry's name (`displayName`, else `cn`, else the value of
-  its RDN), followed by the RDN when it differs. Under it: the DN as
-  breadcrumbs (each opens that entry) with a copy button, the object classes,
-  status chips, and "Modified <time> by <modifiersName>" when the entry has
-  `modifyTimestamp` (and `modifiersName`). There are two status chips, both
-  from reliable signals: "Read-only connection" for a read-only profile, and
-  "Disabled" for an Active Directory account whose `userAccountControl` has
-  the ACCOUNTDISABLE flag. The actions are Edit, Add to group, Copy DN and
-  More (raw values, Reload entry, and the entry actions below); a read-only
-  profile has Copy DN and More with raw values and Reload entry only. A
-  narrow card keeps the action icons and drops their words.
+The start page (`/`) lists the profiles from `connections.yaml` (marked
+`yaml`) and, in local mode, the ones saved in the UI; server mode shows less
+([Two modes](configuration.md#two-modes)). Passwords are never stored: a
+profile with a bind DN but no `passwordEnv`/`passwordFile` asks for one at
+connect, and so does one whose configured password the server rejects or
+cannot read. A `bindDNTemplate` profile asks for a username and a password
+([Per-user login](configuration.md#per-user-login)). An untrusted TLS
+certificate shows its chain and fingerprints; "Trust this CA and connect"
+stores it in a UI profile (for a yaml profile, put the PEM in `caPEM` or
+point `caFile` at it).
 
-  The tabs are Attributes, Membership and LDIF. Attributes starts with
-  **Pinned**, the key attributes for the kind of entry: for a person `cn`,
-  `uid` (`sAMAccountName` on Active Directory), `mail`, `title`, `manager`
-  and `telephoneNumber`; for a group or any other entry `cn` and
-  `description`. Pinned attributes the entry has are listed in that order and
-  are not repeated below. Then come Required (MUST), Optional (MAY) and
-  Operational, which starts closed. A click on a section's title closes or
-  opens it; a section opens by itself while one of its rows has a problem to
-  fix or a server error, and Operational also while the attribute filter is
-  set. A row with one value is 30 px
-  tall; hovering a value shows its copy button, and DN values open their
-  entry. The attribute filter sits in the tab bar. Membership loads only while
-  its tab is open, with Direct or Nested in the tab bar. The tab, Direct or
-  Nested, whether Operational is open, and the attribute filter stay as you
-  move to another entry (Up and Down in the list, the tree, a link); Edit
-  ends when you leave the entry.
+### Layout and tree
 
-  Values come with decoded AD values (SIDs, GUIDs, dates, `userAccountControl`
-  flags), photos and a Download button on binary values (on any profile);
-  Raw values in More shows them as stored. Membership lists direct and nested
-  groups with the "via" group; LDIF shows the
-  entry as LDIF (non-ASCII text such as Cyrillic names is shown decoded, marked
-  `utf-8`, here and in the Review and entry action dialogs; values with edge
-  spaces, line breaks, control, invisible, private-use or unassigned characters
-  stay base64; Copy LDIF and downloads keep base64, as RFC 2849 requires).
-  The Members list appears for groups that use `member` or
-  `uniqueMember` (not for a posixGroup's `memberUid`); Member of also lists
-  the posixGroups whose `memberUid` holds the entry's `uid`. Values of
-  password and secret attributes never leave the server (their names and a
-  count of hidden values are shown). Long value lists show the first 100
-  values and grow by 1000 on request; the attribute filter also narrows the
-  values it matches. An attribute with more than 10 000 values (the `member`
-  list of a huge group) arrives truncated to its first 10 000, noted
-  "Showing the first 10,000 values"; LDIF and CSV exports of such an entry
-  also hold only the first 10 000. Edit still adds and deletes single
-  values, and Apply touches only those. Member of searches `member`,
-  `uniqueMember` and `memberUid`; an equality index on each keeps it fast.
-  Member of and Members list at most 10 000 groups or members, and Nested
-  follows groups 10 levels deep: a longer list is truncated there, a deeper
-  one stops at the tenth level, and either is marked "The list may be
-  incomplete" (Member of marks a chain exactly 10 levels deep too: it
-  cannot tell that the tenth group is in no other; nor can Members tell that
-  a group at the tenth level has no members).
-- **Pending changes** (above the status bar, only while changes are staged):
-  "2 changes in 1 entry staged for demo" with the server address, Discard
-  and Review (⌘S / Ctrl+S). Discard asks first; ⌘Z / Ctrl+Z brings the
-  changes back. "Some changes fail validation" shows on the bar while a
-  staged change breaks the schema.
-- **Status bar** (bottom): the server address, whether the connection is
-  encrypted (TLS, StartTLS, not encrypted, certificate not verified), the
-  server type, and the keys that act in the focused pane (the tree, the
-  list, the card, or a value being edited).
-- Every view has a URL (`/c/<profile>/entry?dn=...`,
-  `/c/<profile>/search?filter=...`), so links and reloads work.
+The tree is on the left and the entry card on the right. A search, or List
+children, opens a list pane between them; Up and Down in the list move the
+card through the rows, and Esc or × closes it without losing the entry or
+its staged changes.
+
+The tree loads lazily and works from the keyboard (arrows, Home/End, `*`,
+type-ahead). An account row (`uid=` or `sAMAccountName=`) also shows the
+person's name. A container shows its first 2000 children; a bigger one ends
+with "More entries…", which lists them in the list pane. **List children**
+(the list icon on a container, Shift+Enter on its row, or the command
+palette) lists the entries one level under it. "Filter loaded entries"
+narrows the open branches without asking the server.
+
+Invisible and direction-changing characters in names and DNs (a
+right-to-left override, a zero-width space) show as `<U+XXXX>`, such as
+`<U+202E>`; Copy DN, LDIF and writes use the real value.
+
+### Search
+
+The search bar in the header takes three kinds of input; Enter runs it.
+
+- Plain text (`doe`, `John Doe`) searches by name: `cn` and `displayName`
+  containing it, `uid`, `sAMAccountName` and `mail` starting with it.
+- Text with `=` or `(` is an RFC 4515 filter (`uid=jdoe`,
+  `(&(objectClass=person)(cn=a*))`), with highlighting, completion from the
+  schema and inline errors. Empty matches everything.
+- A DN under the connection's base DN, in any letter case, opens that entry.
+  A value with an unescaped `=` (`memberOf=cn=devs,...`) keeps it a filter.
+
+The chip next to it sets the search base, the scope (subtree, one level or
+base) and the result columns. Next to it are the filter builder and the
+recent and saved searches, kept per connection in the browser, with
+examples (people, groups, OUs, disabled accounts on Active Directory).
+
+A filter can test a password or secret attribute for presence
+(`(userPassword=*)`) but not match its values: such filters are refused with
+400 `secret_filter`.
+
+### Results
+
+Each row leads with the entry's name (`displayName`, else `cn`, else its RDN
+value), then `uid` (`sAMAccountName` on Active Directory) and `mail` until you
+pick other columns. Sorting and Export (CSV or LDIF) act on the rows loaded;
+⌘C / Ctrl+C copies the selected row's DN.
+
+A search shows up to 500 entries; **Load more** runs it again for 1000, 2000,
+then 5000. Past 5000, narrow the filter or the base. A search the server cut
+with its own size or time limit, or one past ldaplens's cap of 64 MiB of
+values, shows what arrived, marked "The search stopped early".
+
+### Entry card
+
+The header shows the entry's name and kind, its DN as breadcrumbs with a
+copy button, the object classes, "Modified <time> by <modifiersName>" when
+the entry has them, and chips for a read-only profile and a disabled Active
+Directory account. The actions are Edit, Add to group, Copy DN and More (raw
+values, Reload entry and the entry actions); a read-only profile has only
+Copy DN, raw values and Reload.
+
+The tabs are **Attributes**, **Membership** and **LDIF**. Attributes start
+with Pinned (for a person `cn`, `uid`, `mail`, `title`, `manager`,
+`telephoneNumber`; otherwise `cn` and `description`), then Required (MUST),
+Optional (MAY) and Operational. AD values are decoded (SIDs, GUIDs, dates,
+`userAccountControl` flags), photos are shown, and binary values have a
+Download button. Values of password and secret attributes never leave the
+server: only their names and a count are shown.
+
+Long value lists show the first 100 values and grow by 1000 on request. An
+attribute with more than 10 000 values (the `member` list of a huge group)
+arrives truncated to its first 10 000, and exports hold only those; Edit
+still adds and removes single values.
+
+LDIF shows non-ASCII text such as Cyrillic names decoded, marked `utf-8`;
+values with edge spaces, line breaks or control characters stay base64, and
+Copy LDIF and downloads keep base64, as RFC 2849 requires.
+
+### Membership
+
+The Membership tab lists **Member of** and, for groups that use `member` or
+`uniqueMember`, **Members**, either Direct or Nested (with the "via" group).
+Member of searches `member`, `uniqueMember` and `memberUid` (posixGroups, by
+the entry's `uid`); an equality index on each keeps it fast. Both lists stop
+at 10 000 entries and Nested at 10 levels, and are then marked "The list may
+be incomplete".
+
+### Pending changes and status bar
+
+While changes are staged, a bar above the status bar shows how many, for
+which profile and server, with Discard and Review. The status bar shows the
+server address, whether the connection is encrypted, the server type and the
+keys that act in the focused pane.
+
+### Shortcuts
 
 | Shortcut | Action |
 |---|---|
@@ -187,13 +137,12 @@ on non-Latin keyboard layouts.
 
 ### Editing
 
-- **Edit** (`E`, or Edit on the card) turns attribute values into fields; a value
+- **Edit** turns attribute values into fields; a value
   commits on Enter. Changes are staged, not written: added, changed, deleted
   and stale values are marked on the card, the pending changes bar shows
   how many, and staged entries get a dot in the tree and in the results.
   The batch is kept per connection for the browser tab and survives a reload.
-- **Review** (⌘S / Ctrl+S, Review on the pending changes bar, or the command
-  palette) names the profile and the server the batch goes to and shows it
+- **Review** names the profile and the server the batch goes to and shows it
   as LDIF to read or copy; **Apply to** and the profile's name (Apply to
   demo) writes it. Discard all asks first, like Discard on the bar. A
   read-only profile (`readOnly: true`) has no Edit, and
@@ -202,14 +151,12 @@ on non-Latin keyboard layouts.
   "Reload entry" marks the staged changes that no longer fit as stale,
   "Drop stale changes" removes them. A value the server rejects shows its
   error at the field. Entries that applied leave the batch.
-- ⌘Z / Ctrl+Z undoes a staged change and ⌘⇧Z / Ctrl+Shift+Z redoes it
-  (outside text fields). Disconnecting or closing the tab with unapplied
-  changes asks first.
-- **Entry actions** (in the card's More, or the command palette): **New child** (`N`),
-  **Clone** (`C`), **Rename/Move** (`R` or F2) and **Delete** (`Delete` or
-  ⌘⌫ / Ctrl+Backspace). Each opens a dialog with the DN and the LDIF it
+- Undo and redo work on staged changes. Disconnecting or closing the tab
+  with unapplied changes asks first.
+- **Entry actions** (in the card's More, or the command palette): **New
+  child**, **Clone**, **Rename/Move** and **Delete**. Each opens a dialog with the DN and the LDIF it
   writes, and writes at once; it is not staged. More also holds **Import LDIF
-  here…** (`I`, see [Importing LDIF](#importing-ldif)). A read-only profile
+  here…** ([Importing LDIF](#importing-ldif)). A read-only profile
   has no entry actions, and the server refuses these writes too.
 - **New child** picks a structural class (common ones first), auxiliary
   classes, the RDN attribute and value, and asks for the MUST attributes.
@@ -232,7 +179,7 @@ on non-Latin keyboard layouts.
   (the first 5): OpenLDAP keeps a deleted member's DN in its groups unless
   the refint overlay is on, so you remove it from them yourself. On Active
   Directory, which does that by itself, there is no reminder.
-- **Set password…** (`P`, in More and the command palette) is offered for
+- **Set password…** (in More and the command palette) is offered for
   entries whose classes allow `userPassword`, which needs the schema (on
   Active Directory, for `user` entries only). It asks for the new password
   twice and sets it at once: it is never staged, kept in the browser or

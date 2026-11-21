@@ -111,13 +111,18 @@ and the API, so it has only letters, digits, `.`, `_` and `-`. `label`, up to
 the name under it), the connect dialog, the workspace header and the command
 palette.
 
-### Signing in with your own username
+### Per-user login
 
-A profile with `bindDNTemplate` instead of `bindDN` asks each person for a
-username and password at connect, and binds as the template with `{user}`
-replaced by the username. The template contains `{user}` exactly once and
-cannot be combined with `bindDN`, `passwordEnv` or `passwordFile`. It is
-read from `connections.yaml` only; profiles saved in the UI cannot have it.
+A profile with `bindDNTemplate` instead of `bindDN` lets everyone sign in as
+themselves: one profile serves the whole team, each person types their own
+username and password, and ldaplens binds as the template with `{user}`
+replaced. The directory's access rules apply to each person, its audit log
+and ldaplens's logs name who made each change, and no service account
+password is stored. It is the recommended setup for a team.
+
+The template contains `{user}` exactly once and cannot be combined with
+`bindDN`, `passwordEnv` or `passwordFile`. It is read from
+`connections.yaml` only; profiles saved in the UI cannot have it.
 
 ```yaml
 connections:
@@ -132,11 +137,34 @@ connections:
     bindDNTemplate: "{user}@corp.example"
 ```
 
-The username must match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` (ASCII letters,
-digits, `.`, `_` and `-`, starting with a letter or digit, at most 64
-characters), so it cannot change the structure of the DN; in a template that
-contains `=` it is also escaped as a DN value. [Per-user
-login](deployment.md#per-user-login) has the whole flow and its errors.
+The username must match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, so it cannot
+change the structure of the DN (in a template with `=` it is also escaped as
+a DN value), and the password must not be empty, since an empty one would be
+an anonymous bind on many servers. Nothing reaches the directory before both
+checks pass. A wrong password is 401 `invalid_credentials`; five in 60
+seconds for one DN, or twenty from one client address, refuse it until the
+minute is over ([Flags](#flags)).
+
+The connect dialog has a Username field marked `autocomplete="username"`, so
+a password manager offers the accounts it saved. Once connected, the header
+shows `Signed in as` and the DN the connection bound as (or the UPN), and the
+log lines of the connection carry it as `bindDN`. Two people on the same
+profile each have their own connection.
+
+| Code | Status | When | The connect dialog says |
+|---|---|---|---|
+| `username_required` | 400 | no username | Enter your username. |
+| `invalid_username` | 400 | the username does not match the pattern | A username has only letters, digits, ".", "_" and "-", starts with a letter or digit and is at most 64 characters long. |
+| `password_required` | 400 | no password | this profile needs a password |
+| `too_many_attempts` | 429 | five wrong passwords for this DN, or twenty from this client address, in 60 seconds; `Retry-After` gives the seconds to wait | Too many failed sign-ins. Wait a minute and try again. |
+
+The typed password stays in the server's memory with the connection, so
+that ldaplens can reconnect after a drop without asking again. It is
+forgotten at disconnect, after `--session-idle` without use, or
+`--session-max-age` after connecting. If the directory stops accepting it,
+ldaplens closes the connection at the next reconnect and asks to sign in
+again.
+
 ## Saved connections
 
 Profiles created in the UI are kept, without passwords, in `profiles.json`

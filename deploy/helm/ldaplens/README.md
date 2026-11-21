@@ -122,7 +122,7 @@ gh attestation verify "oci://ghcr.io/cicdteam/charts/ldaplens@$digest" \
 | `noticeColor` | `""` | The notice strip's background (`--notice-color`), `#rgb` or `#rrggbb`; the text turns black or white to read on it. Empty keeps the default look. |
 | `session.idle` | `""` | Close LDAP connections after this much inactivity (`--session-idle`). Empty means `30m`. |
 | `session.maxAge` | `""` | Close each LDAP connection this long after it was connected (`--session-max-age`). Empty means `8h`. |
-| `connections` | `[]` | Required. Profiles in the [connections.yaml](https://github.com/cicdteam/ldaplens/blob/main/docs/configuration.md#connectionsyaml) shape, each with `bindDNTemplate` (see [Per-user login](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#per-user-login)). `caFile` names a key of `caCerts`. |
+| `connections` | `[]` | Required. Profiles in the [connections.yaml](https://github.com/cicdteam/ldaplens/blob/main/docs/configuration.md#connectionsyaml) shape, each with `bindDNTemplate` (see [Per-user login](https://github.com/cicdteam/ldaplens/blob/main/docs/configuration.md#per-user-login)). `caFile` names a key of `caCerts`. |
 | `caCerts` | `{}` | CA certificates (PEM) by file name, for the profiles' `caFile`. |
 | `goMemLimit` | `400MiB` | `GOMEMLIMIT`, about 80% of the memory limit: Go does not read the limit. Empty sets none. |
 | `resources` | `{requests: {cpu: 50m, memory: 64Mi}, limits: {memory: 512Mi}}` | The container's resources. |

@@ -40,6 +40,24 @@ people with titles and departments (001-040 enabled with `Demo-Passw0rd!`,
 Everyone via Staff via Engineering), and All Bulk, a group of 1600 users,
 above AD's 1500-value range limit.
 
+### Images and the demo
+
+`make image` builds `ldaplens:dev`, to run in place of the published image.
+
+`make image-multiarch` builds `ldaplens:dev-amd64` and `ldaplens:dev-arm64` with
+buildx and checks each (architecture, unpacked size under 40 MiB, `--version`,
+and, with the hardening flags, `/healthz` of server mode and the login link of
+local mode with a volume); set `IMAGE` to tag them for a registry. On a host without amd64
+(or arm64) emulation, pass `PLATFORMS=linux/arm64` (or `linux/amd64`) to check
+one platform.
+
+Demo with a sample OpenLDAP and Samba AD, in local mode: `make demo-start`, then open
+<http://127.0.0.1:8080/?token=demo-token-not-secret>. It has three profiles:
+`demo` (editable) and `demo-readonly` (read-only) on OpenLDAP, and `demo-ad` (Samba AD over LDAPS, editable, bound as Administrator; demo
+people 001-040 bind with `Demo-Passw0rd!`, 041-045 are disabled). The
+directories reset on every start. `make demo-stop` stops it; `make demo-start DEMO_PORT=8090` picks another port.
+`make help` lists all targets.
+
 ### Samba AD vs Active Directory
 
 The AD tests run against Samba, which differs from Windows AD in ways they
