@@ -30,6 +30,14 @@ export function DeleteDialog({ dn, close }: { dn: string; close: () => void }) {
     staleTime: 0,
   })
   const n = kids.data?.entries?.length ?? 0
+  // The groups that list the entry directly. Active Directory drops a deleted
+  // member by itself; other servers may keep its DN, so the dialog names them.
+  const groups = useQuery({
+    queryKey: ['c', ws.conn, 'memberof', dn, false],
+    queryFn: ({ signal }) => api.memberOf(ws.conn, dn, false, signal),
+    enabled: !ws.info.activeDirectory,
+    staleTime: 0,
+  })
   const m = useMutation({
     mutationFn: () => api.deleteEntry(ws.conn, { dn }),
     onSuccess: () => {
@@ -57,6 +65,9 @@ export function DeleteDialog({ dn, close }: { dn: string; close: () => void }) {
       {kids.isPending && <Spinner />}
       {kids.isError && <ErrorBanner error={kids.error} />}
       {n > 0 && <p className="text-sm text-danger">{childrenNote(n)}</p>}
+      {n === 0 && groups.data?.refs?.length ? (
+        <GroupNote dns={groups.data.refs.map((r) => r.dn)} truncated={!!groups.data.truncated} />
+      ) : null}
       {kids.isSuccess && n === 0 && (
         <label className="flex flex-col gap-1 text-xs">
           {/* One flex item; bdi keeps the raw RDN, typed as is, from reordering the words
@@ -82,5 +93,32 @@ export function DeleteDialog({ dn, close }: { dn: string; close: () => void }) {
         </label>
       )}
     </WriteDialog>
+  )
+}
+
+const shown = 5
+
+/** A reminder, not a step: the groups that list the entry and may keep its DN. */
+function GroupNote({ dns, truncated }: { dns: string[]; truncated: boolean }) {
+  const more = dns.length - shown
+  return (
+    <div
+      role="note"
+      aria-label="Group membership"
+      className="space-y-1 border-l-2 border-warn bg-panel px-3 py-2 text-xs"
+    >
+      <p>
+        A member of {dns.length}
+        {truncated && '+'} {dns.length === 1 && !truncated ? 'group' : 'groups'}. Unless the server
+        removes a deleted entry from its groups by itself (OpenLDAP does with the refint overlay),
+        they keep its DN: remove it from them yourself.
+      </p>
+      <ul className="font-mono break-all text-muted">
+        {dns.slice(0, shown).map((g) => (
+          <li key={g}>{g}</li>
+        ))}
+        {(more > 0 || truncated) && <li>and {truncated ? 'more' : `${more} more`}</li>}
+      </ul>
+    </div>
   )
 }

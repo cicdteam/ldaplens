@@ -51,6 +51,7 @@ export const E2E_PEOPLE: string[] = [
   'clonesrc',
   'renamer',
   'deleteme',
+  'grouped',
   'pwssha',
   'pwserver',
   'joiner',
@@ -77,6 +78,8 @@ export const E2E_GROUPS: Record<string, { cls: 'groupOfNames' | 'posixGroup'; me
     'solo-team': { cls: 'groupOfNames', members: ['soloist'] },
     'posix-team': { cls: 'posixGroup', members: [] },
     'leave-team': { cls: 'groupOfNames', members: ['keeper', 'leaver'] },
+    'grouped-names': { cls: 'groupOfNames', members: ['grouped'] },
+    'grouped-posix': { cls: 'posixGroup', members: ['grouped'] },
     'journey-names': { cls: 'groupOfNames', members: ['keeper'] },
     'journey-posix': { cls: 'posixGroup', members: [] },
   }

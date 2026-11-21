@@ -402,7 +402,10 @@ on non-Latin keyboard layouts.
   an attribute" is off by default and not offered on Active Directory.
   **Delete** removes an entry without children after you type its RDN. Both
   wait until staged changes of the entry and the entries below it are applied
-  or discarded.
+  or discarded. When groups list the entry as a member, Delete names them
+  (the first 5): OpenLDAP keeps a deleted member's DN in its groups unless
+  the refint overlay is on, so you remove it from them yourself. On Active
+  Directory, which does that by itself, there is no reminder.
 - **Set password…** (`P`, in More and the command palette) is offered for
   entries whose classes allow `userPassword`, which needs the schema (on
   Active Directory, for `user` entries only). It asks for the new password
