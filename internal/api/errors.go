@@ -58,6 +58,10 @@ func writeError(w http.ResponseWriter, status int, e apiError) {
 // may show.
 var errPasswordUnavailable = errors.New("the configured password for this profile is unavailable; see the server log")
 
+// tryAgain ends the messages of errors that pass on their own, such as a
+// directory restarting.
+const tryAgain = "Try again in a moment."
+
 // errorResponse maps an error from the LDAP layer to an HTTP status and body.
 // It never answers 502 or 504: a proxy or CDN in front, Cloudflare for one,
 // replaces those with its own error page, and the UI would lose the body.
@@ -80,7 +84,7 @@ func errorResponse(err error) (int, apiError) {
 	case errors.Is(err, ldapx.ErrSecretFilter):
 		return http.StatusBadRequest, apiError{Code: "secret_filter", Message: err.Error()}
 	case errors.Is(err, context.DeadlineExceeded):
-		return http.StatusServiceUnavailable, apiError{Code: "timeout", Message: "the LDAP server did not answer in time"}
+		return http.StatusServiceUnavailable, apiError{Code: "timeout", Message: "the LDAP server did not answer in time. " + tryAgain}
 	case errors.Is(err, context.Canceled):
 		return http.StatusServiceUnavailable, apiError{Code: "canceled", Message: "request canceled"}
 	case errors.As(err, &le):
@@ -115,7 +119,9 @@ func errorResponse(err error) (int, apiError) {
 			e.Code = "bad_filter"
 			return http.StatusBadRequest, e
 		case ldap.ErrorNetwork:
-			e.Code = "network"
+			// The go-ldap text ("LDAP Result Code 200 ...: EOF") means
+			// little to a person; it stays in the diagnostic.
+			e.Code, e.Message = "network", "cannot reach the directory server. "+tryAgain
 			return http.StatusServiceUnavailable, e
 		}
 		e.Code = "ldap_error"
@@ -135,7 +141,7 @@ func errorResponse(err error) (int, apiError) {
 func signInError(status int, e apiError) (int, apiError) {
 	switch {
 	case e.Code == "network":
-		return status, apiError{Code: e.Code, Message: "cannot reach the directory server"}
+		return status, apiError{Code: e.Code, Message: "cannot reach the directory server. " + tryAgain}
 	case e.Code == "tls_untrusted":
 		return status, apiError{Code: e.Code, Message: "the directory server's certificate is not trusted"}
 	case e.LDAPResultCode != 0: // every other LDAP result

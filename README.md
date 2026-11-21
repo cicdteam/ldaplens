@@ -80,7 +80,7 @@ empty. In server mode:
   decoded from it, such as Active Directory's `account locked out`, would
   tell anyone who tries a name that the account exists. A server that
   cannot be reached answers 503 `network` with `cannot reach the directory
-  server`, and an untrusted certificate 422 `tls_untrusted` with `the
+  server. Try again in a moment.`, and an untrusted certificate 422 `tls_untrusted` with `the
   directory server's certificate is not trusted`, without host names, the
   error text or the certificate chain. The server log keeps the full error
   in `connect failed`.
@@ -932,7 +932,8 @@ Set up the proxy and ldaplens together:
 - **Error pages**: ldaplens never answers 502 or 504 itself, since a proxy
   or CDN may put its own error page in place of those (Cloudflare does). A
   proxy that replaces other error responses hides ldaplens's messages, and
-  the UI then shows only the status, such as `The server answered HTTP 503`.
+  the UI then shows only the status: `The ldaplens server did not answer
+  properly (HTTP 503). Try again in a moment, or reload the page.`
 - **`Origin` and `Sec-Fetch-Site`** reach ldaplens as the browser sent them.
   Its cross-origin check reads them, and a proxy that clears or rewrites
   them turns the check off.

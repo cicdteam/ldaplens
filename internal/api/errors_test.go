@@ -83,6 +83,14 @@ func TestErrorResponse(t *testing.T) {
 	if len(body.Certificates) != 1 || len(body.Certificates[0].SHA256) != 64 || body.Certificates[0].PEM == "" {
 		t.Errorf("errorResponse(untrusted).Certificates = %+v, want one cert with sha256 and PEM", body.Certificates)
 	}
+	// A dropped directory or a slow one says what to do; the LDAP text stays in diagnostic.
+	_, body = errorResponse(ldap.NewError(ldap.ErrorNetwork, errors.New("unable to read LDAP response packet: EOF")))
+	if want := "cannot reach the directory server. Try again in a moment."; body.Message != want || body.Diagnostic != "unable to read LDAP response packet: EOF" {
+		t.Errorf("errorResponse(network) = message %q diagnostic %q, want %q and the LDAP text", body.Message, body.Diagnostic, want)
+	}
+	if _, body := errorResponse(context.DeadlineExceeded); body.Message != "the LDAP server did not answer in time. Try again in a moment." {
+		t.Errorf("errorResponse(timeout).Message = %q, want a try-again hint", body.Message)
+	}
 	// Internal errors may name local files; s.fail logs them instead.
 	internal := errors.New("open /etc/ldaplens/ca.pem: permission denied")
 	if _, body := errorResponse(internal); body.Code != "internal" || strings.Contains(body.Message, "/etc/ldaplens/ca.pem") {

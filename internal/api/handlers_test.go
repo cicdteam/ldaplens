@@ -616,7 +616,7 @@ func TestServerModeConnectErrors(t *testing.T) {
 			name: "network", body: typed,
 			err:    ldap.NewError(ldap.ErrorNetwork, errors.New("dial tcp: lookup ldap.corp.internal: no such host")),
 			logged: "ldap.corp.internal", wantStatus: http.StatusServiceUnavailable,
-			want: map[string]any{"code": "network", "message": "cannot reach the directory server"},
+			want: map[string]any{"code": "network", "message": "cannot reach the directory server. Try again in a moment."},
 		},
 		{
 			name: "untrusted certificate", body: typed,
