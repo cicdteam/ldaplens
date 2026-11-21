@@ -218,7 +218,7 @@ export function Omnibox() {
   return (
     <div
       role="search"
-      className="relative flex h-8 min-w-[22rem] flex-1 items-center gap-1 rounded-md border border-border-strong bg-bg pr-1 pl-2 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/30 focus-within:outline-hidden"
+      className="relative flex h-8 min-w-[27rem] flex-1 items-center gap-1 rounded-md border border-border-strong bg-bg pr-1 pl-2 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/30 focus-within:outline-hidden"
     >
       <Search aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted" />
       <div className="relative h-full min-w-16 flex-1">
@@ -258,7 +258,7 @@ export function Omnibox() {
             title="Search base, scope and columns"
             className="flex h-6 min-w-0 shrink items-center gap-1.5 border-l border-border-strong pr-1 pl-2 text-xs text-muted hover:text-fg"
           >
-            <span className="min-w-0 truncate font-mono font-medium text-fg">
+            <span className="min-w-16 truncate font-mono font-medium text-fg">
               {draft.base.trim() || ws.info.baseDN}
             </span>
             <span className="shrink-0 rounded bg-panel px-1.5 text-[11px]">
