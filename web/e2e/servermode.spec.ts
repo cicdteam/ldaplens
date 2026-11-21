@@ -80,9 +80,8 @@ test('server mode shows no saving and no trust', async ({ page }) => {
 test('a profile label stands in for its name, which stays in the URL', async ({ page }) => {
   await page.goto('./')
   const label = 'Example Org (fictional catalog)'
-  const button = page.getByRole('button', {
-    name: new RegExp(`^${label.replace(/[()]/g, '\\$&')}`),
-  })
+  // The button's name starts with the label; substring match, as no other profile has it.
+  const button = page.getByRole('button', { name: label })
   // The name is still there, small, under the label.
   await expect(button).toContainText('labeled')
   await button.click()
