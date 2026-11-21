@@ -98,25 +98,52 @@ test('a profile label stands in for its name, which stays in the URL', async ({ 
   )
 })
 
-test('a long label and Signed in as leave the search bar whole at 1200 px', async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 720 })
-  await page.goto('./')
-  await page.getByRole('button', { name: 'Example Org (fictional organization catalog)' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Username').fill('user001')
-  await dialog.getByLabel('Password', { exact: true }).fill('secret001')
-  await dialog.getByLabel('Password', { exact: true }).press('Enter')
-  const header = page.locator('header')
-  const signedIn = header.getByText(/^Signed in as/)
-  await expect(signedIn).toBeVisible()
-  // Nothing in the header overlaps: each control ends before the next starts.
-  const box = async (title: string) =>
-    (await header.getByTitle(title, { exact: true }).boundingBox())!
-  const scope = await box('Search base, scope and columns')
-  const run = await box('Run the search (Enter)')
-  const signed = (await signedIn.boundingBox())!
-  expect(scope.x + scope.width).toBeLessThanOrEqual(run.x)
-  expect(run.x + run.width).toBeLessThanOrEqual(signed.x)
-  // The header itself does not scroll sideways.
-  expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true)
-})
+for (const width of [1200, 1120, 1024]) {
+  test(`a long label and Signed in as leave the header whole at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 720 })
+    await page.goto('./')
+    await page.getByRole('button', { name: 'Example Org (fictional organization catalog)' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Username').fill('user001')
+    await dialog.getByLabel('Password', { exact: true }).fill('secret001')
+    await dialog.getByLabel('Password', { exact: true }).press('Enter')
+    const header = page.locator('header')
+    const signedIn = header.getByText(/^Signed in as/)
+    await expect(signedIn).toBeVisible()
+    const box = async (title: string) =>
+      (await header.getByTitle(title, { exact: true }).boundingBox())!
+    // Nothing overlaps: each control ends before the next starts.
+    const row = [
+      // The chip's last part, its chevron: content can spill out of a squeezed button.
+      (await header
+        .getByTitle('Search base, scope and columns', { exact: true })
+        .locator('svg')
+        .last()
+        .boundingBox())!,
+      (await header.getByRole('button', { name: 'Filter builder' }).boundingBox())!,
+      (await header.getByRole('button', { name: 'Recent and saved searches' }).boundingBox())!,
+      await box('Run the search (Enter)'),
+      (await signedIn.boundingBox())!,
+    ]
+    for (let i = 1; i < row.length; i++) {
+      expect(row[i - 1].x + row[i - 1].width).toBeLessThanOrEqual(row[i].x)
+    }
+    // Signed in as gives way first: the label and the base DN keep a readable part.
+    const label = (await header
+      .getByTitle('All connections', { exact: true })
+      .locator('span.truncate')
+      .boundingBox())!
+    expect(label.width).toBeGreaterThanOrEqual(150)
+    const base = (await header
+      .getByTitle('Search base, scope and columns', { exact: true })
+      .locator('span')
+      .first()
+      .boundingBox())!
+    expect(base.width).toBeGreaterThanOrEqual(60)
+    // The palette button stays on one line.
+    const palette = (await header.getByRole('button', { name: /Search or jump/ }).boundingBox())!
+    expect(palette.height).toBeLessThanOrEqual(30)
+    // The header itself does not scroll sideways.
+    expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true)
+  })
+}
