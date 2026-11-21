@@ -14,10 +14,12 @@ export interface ServerInfo {
 
 /**
  * A profile as GET /api/profiles returns it. Server mode sends only name,
- * color, readOnly, connected, userLogin and needsPassword.
+ * label, color, readOnly, connected, userLogin and needsPassword.
  */
 export interface Profile {
   name: string
+  /** What the UI shows for the profile; name when absent. */
+  label?: string
   url?: string
   startTLS?: boolean
   baseDN?: string
@@ -40,6 +42,7 @@ export interface Profile {
 /** Body of POST /api/profiles; the server rejects unknown fields. */
 export interface ProfileInput {
   name: string
+  label?: string
   url: string
   startTLS: boolean
   baseDN?: string

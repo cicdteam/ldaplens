@@ -163,7 +163,7 @@ func newTestEnvWith(t *testing.T, opts Options) *testEnv {
 	t.Setenv("LDAPLENS_TEST_PW", "from-env")
 	cat, err := profile.NewCatalog([]profile.Profile{
 		{Name: "dev", URL: "ldap://dev:389", BindDN: "cn=admin,dc=example,dc=org", PasswordEnv: "LDAPLENS_TEST_PW"}, //nolint:gosec // env var name, not a credential
-		{Name: "manual", URL: "ldap://manual:389", StartTLS: true, BindDN: "cn=admin,dc=example,dc=org", ReadOnly: true, InsecureSkipVerify: true, Color: "red"},
+		{Name: "manual", URL: "ldap://manual:389", StartTLS: true, BindDN: "cn=admin,dc=example,dc=org", ReadOnly: true, InsecureSkipVerify: true, Color: "red", Label: "Manual bind"},
 		{Name: "anon", URL: "ldap://anon:389"},
 		{Name: "people", URL: "ldap://people:389", BindDNTemplate: "uid={user},ou=people,dc=example,dc=org"},
 	}, t.TempDir())
@@ -561,7 +561,7 @@ func TestServerModeProfileView(t *testing.T) {
 	}
 	want := []map[string]any{
 		{"name": "dev", "readOnly": false, "connected": false, "userLogin": false, "needsPassword": false},
-		{"name": "manual", "color": "red", "readOnly": true, "connected": false, "userLogin": false, "needsPassword": true},
+		{"name": "manual", "label": "Manual bind", "color": "red", "readOnly": true, "connected": false, "userLogin": false, "needsPassword": true},
 		{"name": "anon", "readOnly": false, "connected": false, "userLogin": false, "needsPassword": false},
 		{"name": "people", "readOnly": false, "connected": false, "userLogin": true, "needsPassword": true},
 	}

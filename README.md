@@ -63,7 +63,7 @@ also carries `notice` when `--notice` is set and leaves it out when it is
 empty. In server mode:
 
 - the profile list (`GET /api/profiles`) gives each profile's `name`,
-  `color`, `readOnly`, `connected`, `userLogin` and `needsPassword` only,
+  `label`, `color`, `readOnly`, `connected`, `userLogin` and `needsPassword` only,
   nothing about where or how it binds: no URL, base DN, bind DN, CA or TLS
   settings. The server address and StartTLS show in the status bar once a
   connect has succeeded;
@@ -501,6 +501,7 @@ records) at once; it is not staged. A read-only profile has neither.
 ```yaml
 connections:
   - name: corp-ad
+    label: Corp Active Directory # optional; shown instead of the name
     url: ldaps://dc1.corp.example:636
     baseDN: dc=corp,dc=example
     bindDN: cn=reader,ou=svc,dc=corp,dc=example
@@ -515,6 +516,12 @@ writable unless it sets `readOnly: true`: then the UI offers no Edit or
 Actions and the server refuses its writes with 403 `read_only`. `color` (a
 hex color such as `#d33`, or a CSS color name) puts a colored dot next to the
 profile in the connection list and in the workspace header.
+
+`name` is the profile's identifier: it is in the workspace URL (`/c/corp-ad`)
+and the API, so it has only letters, digits, `.`, `_` and `-`. `label`, up to
+80 characters, is what the UI shows instead: in the connection list (with
+the name under it), the connect dialog, the workspace header and the command
+palette.
 
 ### Signing in with your own username
 

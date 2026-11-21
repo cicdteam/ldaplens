@@ -3,7 +3,7 @@ import { Command } from 'cmdk'
 import { ArrowRight, FileText, Folder, Globe, Plug, Star, User, Users, Zap } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { api, errorMessage } from '../../lib/api'
+import { api, errorMessage, profileLabel } from '../../lib/api'
 import { looksLikeDN, rdnDisplay, splitDN } from '../../lib/dn'
 import { visible } from '../../lib/display'
 import { canSetPassword, stagedHint, stagedUnder } from '../../lib/entryOps'
@@ -179,13 +179,17 @@ export function CommandPalette({
           },
         ]
       : []),
-    { id: 'disconnect', label: `Disconnect from ${ws.conn}`, run: () => void disconnect() },
+    {
+      id: 'disconnect',
+      label: `Disconnect from ${profileLabel({ name: ws.conn, label: profiles.data?.find((p) => p.name === ws.conn)?.label })}`,
+      run: () => void disconnect(),
+    },
   ]
   const needle = q.trim().toLowerCase()
   const match = (s: string) => !needle || s.toLowerCase().includes(needle)
   // cmdk shows a group heading even when no item matches, so empty groups are not rendered.
   const conns = (profiles.data ?? []).filter(
-    (p) => p.connected && p.name !== ws.conn && match(p.name),
+    (p) => p.connected && p.name !== ws.conn && (match(p.name) || match(profileLabel(p))),
   )
   const manage = match('manage connections')
   const acts = actions.filter((a) => match(a.label))
@@ -310,7 +314,7 @@ export function CommandPalette({
                 onSelect={close(() => navigate(`/c/${encodeURIComponent(p.name)}`))}
                 className={item}
               >
-                {row(<Plug className="h-4 w-4 text-muted" />, `Switch to ${p.name}`)}
+                {row(<Plug className="h-4 w-4 text-muted" />, `Switch to ${profileLabel(p)}`)}
               </Command.Item>
             ))}
             {manage && (

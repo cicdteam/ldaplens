@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api, toProfileInput } from '../../lib/api'
+import { api, profileLabel, toProfileInput } from '../../lib/api'
 import type { Profile, ProfileInput } from '../../lib/types'
 import { ErrorBanner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
@@ -9,6 +9,7 @@ import { Input, inputLook } from '../../ui/Input'
 
 const empty: ProfileInput = {
   name: '',
+  label: '',
   url: 'ldaps://',
   startTLS: false,
   baseDN: '',
@@ -22,7 +23,8 @@ const empty: ProfileInput = {
 /** Drops empty optional strings so the server applies its defaults. */
 function clean(p: ProfileInput): ProfileInput {
   const out: ProfileInput = { ...p }
-  for (const k of ['baseDN', 'bindDN', 'caPEM', 'color'] as const) if (!out[k]) delete out[k]
+  for (const k of ['label', 'baseDN', 'bindDN', 'caPEM', 'color'] as const)
+    if (!out[k]) delete out[k]
   return out
 }
 
@@ -53,7 +55,7 @@ export function ProfileForm({
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={profile ? `Edit ${profile.name}` : 'New connection'}
+      title={profile ? `Edit ${profileLabel(profile)}` : 'New connection'}
       wide
     >
       <form
@@ -101,6 +103,15 @@ export function ProfileForm({
             mono
             value={form.bindDN ?? ''}
             onChange={(e) => set({ bindDN: e.target.value })}
+            className="w-full"
+          />
+        </label>
+        <label className={field}>
+          <span className={label}>Label (optional, shown in the UI)</span>
+          <Input
+            value={form.label ?? ''}
+            maxLength={80}
+            onChange={(e) => set({ label: e.target.value })}
             className="w-full"
           />
         </label>

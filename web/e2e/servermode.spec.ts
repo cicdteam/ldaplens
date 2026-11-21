@@ -76,3 +76,22 @@ test('server mode shows no saving and no trust', async ({ page }) => {
     page.viewportSize()!.height,
   )
 })
+
+test('a profile label stands in for its name, which stays in the URL', async ({ page }) => {
+  await page.goto('./')
+  const label = 'Example Org (fictional catalog)'
+  const button = page.getByRole('button', {
+    name: new RegExp(`^${label.replace(/[()]/g, '\\$&')}`),
+  })
+  // The name is still there, small, under the label.
+  await expect(button).toContainText('labeled')
+  await button.click()
+  const dialog = page.getByRole('dialog', { name: `Connect to ${label}` })
+  await dialog.getByLabel('Username').fill('user001')
+  await dialog.getByLabel('Password', { exact: true }).fill('secret001')
+  await dialog.getByLabel('Password', { exact: true }).press('Enter')
+  await expect(page).toHaveURL('http://127.0.0.1:18092/c/labeled')
+  await expect(page.locator('header').getByTitle('All connections', { exact: true })).toHaveText(
+    label,
+  )
+})

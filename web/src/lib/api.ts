@@ -213,10 +213,6 @@ export const api = {
     request<WriteResult>('POST', `${conn(c)}/entries/password`, req),
 }
 
-/**
- * The fields POST /api/profiles accepts; it rejects the computed ones. Only
- * an editable profile gets here, and local mode sends every field of it.
- */
 /** The message for an error answer without a body ldaplens wrote, such as a proxy's page. */
 function unreadable(status: number): string {
   return status >= 500
@@ -224,10 +220,21 @@ function unreadable(status: number): string {
     : `Unexpected answer from the ldaplens server (HTTP ${status}). Reload the page.`
 }
 
+/** What the UI shows for a profile: its label, else its name. */
+export function profileLabel(p: Pick<Profile, 'name' | 'label'>): string {
+  return p.label || p.name
+}
+
+/**
+ * The fields POST /api/profiles accepts; it rejects the computed ones. Only
+ * an editable profile gets here, and local mode sends every field of it.
+ */
 export function toProfileInput(p: Profile): ProfileInput {
-  const { name, url, startTLS, baseDN, bindDN, caPEM, insecureSkipVerify, color, readOnly } = p
+  const { name, label, url, startTLS, baseDN, bindDN, caPEM, insecureSkipVerify, color, readOnly } =
+    p
   return {
     name,
+    label,
     url: url ?? '',
     startTLS: !!startTLS,
     baseDN,

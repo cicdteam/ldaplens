@@ -78,6 +78,7 @@ type profileView struct {
 // connect page needs, and nothing about where or how the profile binds.
 type serverProfileView struct {
 	Name          string `json:"name"`
+	Label         string `json:"label,omitempty"`
 	Color         string `json:"color,omitempty"`
 	ReadOnly      bool   `json:"readOnly"`
 	Connected     bool   `json:"connected"`
@@ -119,7 +120,7 @@ func (s *server) listProfiles(w http.ResponseWriter, r *http.Request) {
 		short := make([]serverProfileView, len(views))
 		for i, v := range views {
 			short[i] = serverProfileView{
-				Name: v.Name, Color: v.Color, ReadOnly: v.ReadOnly,
+				Name: v.Name, Label: v.Label, Color: v.Color, ReadOnly: v.ReadOnly,
 				Connected: v.Connected, UserLogin: v.UserLogin, NeedsPassword: v.NeedsPassword,
 			}
 		}

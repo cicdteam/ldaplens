@@ -7,6 +7,7 @@ import {
   errorKind,
   errorMessage,
   passwordHint,
+  profileLabel,
   retryBusy,
   routerBasename,
   toProfileInput,
@@ -271,6 +272,14 @@ describe('errorMessage', () => {
   })
 })
 
+describe('profileLabel', () => {
+  it('is the label, else the name', () => {
+    expect(profileLabel({ name: 'cicd', label: 'CICD Team' })).toBe('CICD Team')
+    expect(profileLabel({ name: 'cicd' })).toBe('cicd')
+    expect(profileLabel({ name: 'cicd', label: '' })).toBe('cicd')
+  })
+})
+
 describe('toProfileInput', () => {
   it('drops the server-computed fields', () => {
     const p: Profile = {
@@ -285,9 +294,11 @@ describe('toProfileInput', () => {
       userLogin: false,
       needsPassword: false,
       caPEM: 'pem',
+      label: 'A lab',
     }
     expect(toProfileInput(p)).toEqual({
       name: 'a',
+      label: 'A lab',
       url: 'ldaps://h',
       startTLS: false,
       insecureSkipVerify: false,
