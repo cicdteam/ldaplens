@@ -14,7 +14,7 @@ connections:
     baseDN: dc=example,dc=org
     bindDN: cn=admin,dc=example,dc=org
   - name: labeled # the UI shows the label; the name stays in the URL
-    label: Example Org (fictional catalog)
+    label: Example Org (fictional organization catalog)
     url: ldap://127.0.0.1:1390
     baseDN: dc=example,dc=org
     bindDNTemplate: uid={user},ou=people,dc=example,dc=org
