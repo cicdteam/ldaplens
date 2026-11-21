@@ -11,9 +11,14 @@ version, so `releases/latest/download/<name>` always gives the newest
 release, and `releases/download/v<version>/<name>` a given one:
 
 ```sh
-curl -fsSL https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_linux_amd64.tar.gz | tar -xz ldaplens
+os=$(uname -s | tr '[:upper:]' '[:lower:]')                # linux or darwin
+arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/') # amd64 or arm64
+curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_${os}_${arch}.tar.gz" | tar -xz ldaplens
 ./ldaplens
 ```
+
+There is no build for Intel Macs or Windows: there `curl` fails with 404;
+use the [Docker image](#run-with-docker).
 
 With no arguments it runs `local`, on `127.0.0.1:8080` (`--listen` changes
 it), and keeps the saved connections and the token in the user config
@@ -32,14 +37,15 @@ xattr -d com.apple.quarantine ldaplens
 ### Verify the binary
 
 Each archive carries a signed build provenance, like the image. Check it with
-the [GitHub CLI](https://cli.github.com) before you unpack it:
+the [GitHub CLI](https://cli.github.com) before you unpack it (`os` and
+`arch` as above):
 
 ```sh
-curl -fsSLO https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_linux_amd64.tar.gz
-gh attestation verify ldaplens_linux_amd64.tar.gz \
+curl -fsSLO "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_${os}_${arch}.tar.gz"
+gh attestation verify "ldaplens_${os}_${arch}.tar.gz" \
   --repo cicdteam/ldaplens \
   --signer-workflow cicdteam/ldaplens/.github/workflows/ci.yml &&
-  tar -xzf ldaplens_linux_amd64.tar.gz ldaplens
+  tar -xzf "ldaplens_${os}_${arch}.tar.gz" ldaplens
 ```
 
 Add `--source-ref refs/tags/v<version>` to pin the release, or compare the
