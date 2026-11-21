@@ -6,16 +6,16 @@ next to it.
 
 ## Try it online
 
-[demo.ldaplens.com](https://demo.ldaplens.com) runs ldaplens in server mode
-on the directory of CICD Team, a made-up company: about 300 people, their
+[demo.ldaplens.com](https://demo.ldaplens.com) runs ldaplens in server mode on
+the directory of CICD Team, a made-up company: about 300 people, their
 departments, teams and access groups, nested groups included. Sign in as
-`demo` with the password `demo`. Everything is yours to change: browse the
-tree, search with filters, edit people, move them between groups, create,
-rename and delete entries, import LDIF. Every 15 minutes (at :00, :15, :30
-and :45) the directory goes back to its original state, so nothing you do
-there lasts, and others may be editing it at the same time. Passwords and
-binary values such as photos and certificates are read-only there, so the
-demo stays a demo.
+`demo` with the password `demo`. Almost everything is yours to change: browse
+the tree, search with filters, edit people, move them between groups, create,
+rename and delete entries, import LDIF. Every 15 minutes (at :00, :15, :30 and
+:45) the directory goes back to its original state, so nothing you do there
+lasts, and others may be editing it at the same time. Passwords and binary
+values such as photos and certificates are read-only there, so the demo stays
+a demo.
 
 ## Two modes
 
