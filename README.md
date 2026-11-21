@@ -1,5 +1,11 @@
 # ldaplens - LDAP UI
 
+[![CI](https://github.com/cicdteam/ldaplens/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cicdteam/ldaplens/actions/workflows/ci.yml?query=branch%3Amain)
+[![Release](https://img.shields.io/github/v/release/cicdteam/ldaplens)](https://github.com/cicdteam/ldaplens/releases/latest)
+[![Go](https://img.shields.io/github/go-mod/go-version/cicdteam/ldaplens)](go.mod)
+[![License](https://img.shields.io/github/license/cicdteam/ldaplens)](LICENSE)
+[![Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://demo.ldaplens.com)
+
 A web UI to view, search and manage LDAP data: an LDAP browser and editor for
 OpenLDAP and Active Directory. One binary or one container, nothing to install
 next to it.
