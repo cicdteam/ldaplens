@@ -6,8 +6,8 @@ directories of the OpenLDAP family, with per-user sign-in only: every
 profile has a `bindDNTemplate`, everyone signs in with their own username
 and password, and the chart holds no Secret, password or token. For a
 shared profile, one that binds with a configured password or anonymously,
-run ldaplens with [Docker](https://github.com/cicdteam/ldaplens#run-with-docker)
-or [systemd](https://github.com/cicdteam/ldaplens#systemd) instead.
+run ldaplens with [Docker](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#run-with-docker)
+or [systemd](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#systemd) instead.
 
 The chart installs:
 
@@ -87,7 +87,7 @@ rollout, everyone signs in again.
 
 **Pin the image by digest** in production: set `image.digest` to the
 `sha256:...` from [Verify the
-image](https://github.com/cicdteam/ldaplens#verify-the-image); it wins over
+image](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#verify-the-image); it wins over
 `image.tag`.
 
 ### Verify the chart
@@ -122,7 +122,7 @@ gh attestation verify "oci://ghcr.io/cicdteam/charts/ldaplens@$digest" \
 | `noticeColor` | `""` | The notice strip's background (`--notice-color`), `#rgb` or `#rrggbb`; the text turns black or white to read on it. Empty keeps the default look. |
 | `session.idle` | `""` | Close LDAP connections after this much inactivity (`--session-idle`). Empty means `30m`. |
 | `session.maxAge` | `""` | Close each LDAP connection this long after it was connected (`--session-max-age`). Empty means `8h`. |
-| `connections` | `[]` | Required. Profiles in the [connections.yaml](https://github.com/cicdteam/ldaplens#connectionsyaml) shape, each with `bindDNTemplate` (see [Per-user login](https://github.com/cicdteam/ldaplens#per-user-login)). `caFile` names a key of `caCerts`. |
+| `connections` | `[]` | Required. Profiles in the [connections.yaml](https://github.com/cicdteam/ldaplens/blob/main/docs/configuration.md#connectionsyaml) shape, each with `bindDNTemplate` (see [Per-user login](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#per-user-login)). `caFile` names a key of `caCerts`. |
 | `caCerts` | `{}` | CA certificates (PEM) by file name, for the profiles' `caFile`. |
 | `goMemLimit` | `400MiB` | `GOMEMLIMIT`, about 80% of the memory limit: Go does not read the limit. Empty sets none. |
 | `resources` | `{requests: {cpu: 50m, memory: 64Mi}, limits: {memory: 512Mi}}` | The container's resources. |
@@ -189,7 +189,7 @@ false and route `host` and `basePath` to the Service's `http` port,
 keeping the path and the Host header, with cookie affinity, 8 MiB bodies
 and a 300 second read timeout; set `networkPolicy.from` to the proxy's
 pods. [Behind a reverse
-proxy](https://github.com/cicdteam/ldaplens#behind-a-reverse-proxy) has
+proxy](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#behind-a-reverse-proxy) has
 the details.
 
 ## trustedProxies
@@ -212,8 +212,8 @@ address can name any client, so list only proxies: the NetworkPolicy keeps
 the other pods of that network out. The controller must see the client
 address itself: behind a load balancer that hides it, such as a Service
 with `externalTrafficPolicy: Cluster`, clients share the nodes' addresses.
-See [Running for a team](https://github.com/cicdteam/ldaplens#running-for-a-team)
-and [Flags](https://github.com/cicdteam/ldaplens#flags) for the limits.
+See [Running for a team](https://github.com/cicdteam/ldaplens/blob/main/docs/deployment.md#running-for-a-team)
+and [Flags](https://github.com/cicdteam/ldaplens/blob/main/docs/configuration.md#flags) for the limits.
 
 ## What the chart refuses
 

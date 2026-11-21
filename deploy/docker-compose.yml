@@ -6,7 +6,7 @@ services:
   openldap:
     build: ./openldap
     ports:
-      - "127.0.0.1:1389:1389" # for local UI development, see README
+      - "127.0.0.1:1389:1389" # for local UI development, see docs/development.md
     volumes:
       # The file, not the directory: the image loads every .ldif in /ldifs.
       - ./demo-ldif/demo.ldif:/ldifs/demo.ldif:ro
