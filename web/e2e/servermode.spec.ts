@@ -82,7 +82,7 @@ test('server mode shows no saving and no trust', async ({ page }) => {
 
 test('a profile label stands in for its name, which stays in the URL', async ({ page }) => {
   await page.goto('./')
-  const label = 'Example Org (fictional catalog)'
+  const label = 'Example Org (fictional organization catalog)'
   // The button's name starts with the label; substring match, as no other profile has it.
   const button = page.getByRole('button', { name: label })
   // The name is still there, small, under the label.
@@ -96,4 +96,27 @@ test('a profile label stands in for its name, which stays in the URL', async ({ 
   await expect(page.locator('header').getByTitle('All connections', { exact: true })).toHaveText(
     label,
   )
+})
+
+test('a long label and Signed in as leave the search bar whole at 1200 px', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 720 })
+  await page.goto('./')
+  await page.getByRole('button', { name: 'Example Org (fictional organization catalog)' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Username').fill('user001')
+  await dialog.getByLabel('Password', { exact: true }).fill('secret001')
+  await dialog.getByLabel('Password', { exact: true }).press('Enter')
+  const header = page.locator('header')
+  const signedIn = header.getByText(/^Signed in as/)
+  await expect(signedIn).toBeVisible()
+  // Nothing in the header overlaps: each control ends before the next starts.
+  const box = async (title: string) =>
+    (await header.getByTitle(title, { exact: true }).boundingBox())!
+  const scope = await box('Search base, scope and columns')
+  const run = await box('Run the search (Enter)')
+  const signed = (await signedIn.boundingBox())!
+  expect(scope.x + scope.width).toBeLessThanOrEqual(run.x)
+  expect(run.x + run.width).toBeLessThanOrEqual(signed.x)
+  // The header itself does not scroll sideways.
+  expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true)
 })

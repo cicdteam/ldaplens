@@ -52,7 +52,7 @@ export function Header({ extra }: { extra?: ReactNode }) {
       <Link
         to="/"
         title="All connections"
-        className="flex min-w-0 max-w-xs shrink-0 items-center gap-1.5 rounded px-1 font-medium hover:bg-hover"
+        className="flex min-w-0 max-w-xs items-center gap-1.5 rounded px-1 font-medium hover:bg-hover"
       >
         <ColorDot color={ws.info.color} />
         <span className="truncate">{profileLabel({ name: ws.conn, label: profile?.label })}</span>
@@ -61,9 +61,13 @@ export function Header({ extra }: { extra?: ReactNode }) {
         <ProfileBadges profile={ws.info} />
       </span>
       <Omnibox />
-      <div className="flex shrink-0 items-center gap-1">
+      {/* Narrow, the search bar keeps its width: Signed in as gives way first, then the label. */}
+      <div className="flex min-w-0 items-center gap-1">
         {userLogin && ws.info.bindDN && (
-          <span className="max-w-md truncate px-1 text-xs text-muted" title={ws.info.bindDN}>
+          <span
+            className="min-w-0 max-w-md truncate px-1 text-xs text-muted"
+            title={ws.info.bindDN}
+          >
             Signed in as <span className="font-mono">{ws.info.bindDN}</span>
           </span>
         )}
