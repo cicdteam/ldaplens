@@ -32,6 +32,10 @@ trustedProxies: []
 
 # Plain text shown above the header on every page, at most 300 characters.
 notice: ""
+# The notice strip's background, "#rgb" or "#rrggbb", for a notice people
+# must not miss; the text turns black or white to read on it. Empty keeps
+# the default look.
+noticeColor: ""
 
 session:
   # Close LDAP connections after this much inactivity. Empty means 30m.

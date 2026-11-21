@@ -60,7 +60,7 @@ the directory, comes from the bind.
 **Server mode shows only what it takes to connect.** The UI learns the mode
 from `GET /api/server` (`{"mode":"server"}` or `{"mode":"local"}`), which
 also carries `notice` when `--notice` is set and leaves it out when it is
-empty. In server mode:
+empty, and `noticeColor` with it when `--notice-color` is set. In server mode:
 
 - the profile list (`GET /api/profiles`) gives each profile's `name`,
   `label`, `color`, `readOnly`, `connected`, `userLogin` and `needsPassword` only,
@@ -599,6 +599,7 @@ know at its next save.
 | `--secure-cookies` | `LDAPLENS_SECURE_COOKIES` | both | `false`; TLS and `X-Forwarded-Proto: https` make cookies Secure without it (see [Behind a reverse proxy](#behind-a-reverse-proxy)) |
 | `--trusted-proxies` | `LDAPLENS_TRUSTED_PROXIES` | both | none; comma-separated CIDRs or IPs of reverse proxies whose `X-Forwarded-For` is trusted for the client address (see [Behind a reverse proxy](#behind-a-reverse-proxy)) |
 | `--notice` | `LDAPLENS_NOTICE` | both | none; a plain-text message shown above the header on every page once the access token is accepted (markup shows as typed, a newline breaks the line), trimmed, at most 300 characters (a longer one is a startup error) |
+| `--notice-color` | `LDAPLENS_NOTICE_COLOR` | both | none; the notice strip's background, `#rgb` or `#rrggbb` (anything else is a startup error), with black or white text, whichever reads better |
 | `--version` | | both | prints `ldaplens <version>` and exits |
 
 A flag beats its variable, and an empty variable counts as unset
@@ -840,7 +841,8 @@ service.
 - **A notice** for everyone, such as
   `--notice "Public demo: changes are reset every 15 minutes."`, shows as a
   strip above the header on every page, the sign-in page included (with an
-  access token, from the first page after the login link).
+  access token, from the first page after the login link). To make it hard
+  to miss, `--notice-color "#f59e0b"` fills the strip with that color.
 
 What is read at startup and what at every connect, the probes and the
 shutdown drain are described under [Flags](#flags), who did what under [Logs

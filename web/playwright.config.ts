@@ -28,7 +28,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:18091/ldap/healthz',
       reuseExistingServer: false,
       // Empty is unset: a variable in the shell running the tests does not reach the server.
-      env: { LDAPLENS_NOTICE: '', LDAPLENS_SECURE_COOKIES: '' },
+      env: { LDAPLENS_NOTICE: '', LDAPLENS_NOTICE_COLOR: '', LDAPLENS_SECURE_COOKIES: '' },
     },
     {
       // Server mode at the root path, without a token: servermode.spec.ts.
@@ -43,6 +43,8 @@ export default defineConfig({
         LDAPLENS_DATA_DIR: '',
         // Markup and a newline: the UI shows both as text.
         LDAPLENS_NOTICE: 'Public demo <b>x</b>\nsecond',
+        // Amber: the UI picks black text on it.
+        LDAPLENS_NOTICE_COLOR: '#f59e0b',
         LDAPLENS_SECURE_COOKIES: '',
       },
     },

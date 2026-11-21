@@ -132,6 +132,43 @@ func TestParseArgsNotice(t *testing.T) {
 	}
 }
 
+func TestParseArgsNoticeColor(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		env     string
+		want    string
+		wantErr bool
+	}{
+		{name: "default", want: ""},
+		{name: "six digits", args: []string{"--notice-color", "#f59e0b"}, want: "#f59e0b"},
+		{name: "three digits, from env", env: "#F90", want: "#F90"},
+		{name: "trimmed", args: []string{"--notice-color", " #f59e0b "}, want: "#f59e0b"},
+		{name: "no hash", args: []string{"--notice-color", "f59e0b"}, wantErr: true},
+		{name: "a name", args: []string{"--notice-color", "orange"}, wantErr: true},
+		{name: "four digits", args: []string{"--notice-color", "#f59e"}, wantErr: true},
+		{name: "CSS after it", env: "#fff;background:url(x)", wantErr: true},
+	}
+	for _, tc := range tests {
+		getenv := func(k string) string {
+			if k == "LDAPLENS_NOTICE_COLOR" {
+				return tc.env
+			}
+			return ""
+		}
+		got, err := parseArgs(tc.args, getenv, io.Discard)
+		if tc.wantErr {
+			if err == nil || !strings.Contains(err.Error(), "--notice-color") {
+				t.Errorf("%s: parseArgs(%q) error = %v, want one naming --notice-color", tc.name, tc.args, err)
+			}
+			continue
+		}
+		if err != nil || got.noticeColor != tc.want {
+			t.Errorf("%s: parseArgs(%q) noticeColor = %q, %v, want %q, nil", tc.name, tc.args, got.noticeColor, err, tc.want)
+		}
+	}
+}
+
 func TestParseArgsSessionIdle(t *testing.T) {
 	tests := []struct {
 		name    string

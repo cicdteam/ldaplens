@@ -77,6 +77,9 @@ type Options struct {
 	// Notice is an operator message the UI shows on every page that can
 	// reach the API, so not before the access token; empty shows none.
 	Notice string
+	// NoticeColor is the notice strip's background, #rgb or #rrggbb, as
+	// checked by the caller; empty keeps the default look.
+	NoticeColor string
 	// Server is set in server mode, which keeps no data on disk.
 	Server bool
 	// UI is the built web UI; nil serves a "not built" page.
@@ -101,6 +104,7 @@ func New(opts Options) http.Handler {
 		trustedProxies: opts.TrustedProxies,
 		serverMode:     opts.Server,
 		notice:         opts.Notice,
+		noticeColor:    opts.NoticeColor,
 		attempts:       newAttemptLimiter(5, time.Minute, 10000, time.Now),
 		clients:        newAttemptLimiter(20, time.Minute, 10000, time.Now),
 	}

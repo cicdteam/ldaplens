@@ -62,6 +62,9 @@ spec:
             {{- end }}
             {{- with $notice }}
             - {name: LDAPLENS_NOTICE, value: {{ . | quote }}}
+            {{- with $.Values.noticeColor }}
+            - {name: LDAPLENS_NOTICE_COLOR, value: {{ . | quote }}}
+            {{- end }}
             {{- end }}
             {{- with .Values.session.idle }}
             - {name: LDAPLENS_SESSION_IDLE, value: {{ . | quote }}}

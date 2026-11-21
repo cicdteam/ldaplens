@@ -119,6 +119,7 @@ gh attestation verify "oci://ghcr.io/cicdteam/charts/ldaplens@$digest" \
 | `basePath` | `""` | A URL prefix such as `/ldap` (`--base-path`), kept by the proxy (no rewrite-target). The probes and the Ingress path follow it. |
 | `trustedProxies` | `[]` | CIDRs or IPs of the proxies in front of ldaplens (`--trusted-proxies`). Required with `ingress.enabled`, see [trustedProxies](#trustedproxies). |
 | `notice` | `""` | Plain text shown above the header on every page (`--notice`), at most 300 characters. |
+| `noticeColor` | `""` | The notice strip's background (`--notice-color`), `#rgb` or `#rrggbb`; the text turns black or white to read on it. Empty keeps the default look. |
 | `session.idle` | `""` | Close LDAP connections after this much inactivity (`--session-idle`). Empty means `30m`. |
 | `session.maxAge` | `""` | Close each LDAP connection this long after it was connected (`--session-max-age`). Empty means `8h`. |
 | `connections` | `[]` | Required. Profiles in the [connections.yaml](https://github.com/cicdteam/ldaplens#connectionsyaml) shape, each with `bindDNTemplate` (see [Per-user login](https://github.com/cicdteam/ldaplens#per-user-login)). `caFile` names a key of `caCerts`. |
