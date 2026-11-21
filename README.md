@@ -25,9 +25,7 @@ a demo.
 On your machine, in local mode: download the binary and run it.
 
 ```sh
-os=$(uname -s | tr '[:upper:]' '[:lower:]')                # linux or darwin
-arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/') # amd64 or arm64
-curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_${os}_${arch}.tar.gz" | tar -xz ldaplens
+curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz" | tar -xz ldaplens
 ./ldaplens
 ```
 

@@ -147,11 +147,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: linux_amd64
+          - name: Linux_x86_64
             runner: ubuntu-26.04
-          - name: linux_arm64
+          - name: Linux_aarch64
             runner: ubuntu-26.04-arm
-          - name: darwin_arm64
+          - name: Darwin_arm64
             runner: macos-26
     name: binary-${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
@@ -162,7 +162,9 @@ jobs:
           name: binaries
       - run: |
           shasum -a 256 -c ldaplens_checksums.txt
-          tar -xzf "ldaplens_$NAME.tar.gz" ldaplens
+          # The quick start's URL: uname must name this runner's archive.
+          [ "$(uname -s)_$(uname -m)" = "$NAME" ] || { echo "::error::uname gives $(uname -s)_$(uname -m), want $NAME"; exit 1; }
+          tar -xzf "ldaplens_$(uname -s)_$(uname -m).tar.gz" ldaplens
           got=$(./ldaplens --version)
           [ "$got" = "ldaplens $VERSION" ] || { echo "::error::--version printed '$got', want 'ldaplens $VERSION'"; exit 1; }
           echo "$NAME: ok, $got"

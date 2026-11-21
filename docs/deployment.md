@@ -5,15 +5,15 @@ The binary, Docker, running ldaplens for a team, reverse proxies, Kubernetes and
 ## Run the binary
 
 Each release has static binaries for Linux (amd64, arm64) and macOS (Apple
-silicon), as `ldaplens_<os>_<arch>.tar.gz` with `LICENSE` and `README.md`,
+silicon), as `ldaplens_Linux_x86_64.tar.gz`, `ldaplens_Linux_aarch64.tar.gz`
+and `ldaplens_Darwin_arm64.tar.gz` (named as `uname -s` and `uname -m`
+print), each with `LICENSE` and `README.md`,
 and their SHA-256 sums in `ldaplens_checksums.txt`. The names carry no
 version, so `releases/latest/download/<name>` always gives the newest
 release, and `releases/download/v<version>/<name>` a given one:
 
 ```sh
-os=$(uname -s | tr '[:upper:]' '[:lower:]')                # linux or darwin
-arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/') # amd64 or arm64
-curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_${os}_${arch}.tar.gz" | tar -xz ldaplens
+curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz" | tar -xz ldaplens
 ./ldaplens
 ```
 
@@ -37,15 +37,14 @@ xattr -d com.apple.quarantine ldaplens
 ### Verify the binary
 
 Each archive carries a signed build provenance, like the image. Check it with
-the [GitHub CLI](https://cli.github.com) before you unpack it (`os` and
-`arch` as above):
+the [GitHub CLI](https://cli.github.com) before you unpack it:
 
 ```sh
-curl -fsSLO "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_${os}_${arch}.tar.gz"
-gh attestation verify "ldaplens_${os}_${arch}.tar.gz" \
+curl -fsSLO "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz"
+gh attestation verify "ldaplens_$(uname -s)_$(uname -m).tar.gz" \
   --repo cicdteam/ldaplens \
   --signer-workflow cicdteam/ldaplens/.github/workflows/ci.yml &&
-  tar -xzf "ldaplens_${os}_${arch}.tar.gz" ldaplens
+  tar -xzf "ldaplens_$(uname -s)_$(uname -m).tar.gz" ldaplens
 ```
 
 Add `--source-ref refs/tags/v<version>` to pin the release, or compare the
