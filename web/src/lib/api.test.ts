@@ -67,6 +67,22 @@ describe('request', () => {
     expect(err.message).toBe('Bad Gateway')
   })
 
+  it('does not show a proxy error page as the message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response('<!DOCTYPE html><html><title>502: Bad gateway</title></html>', {
+            status: 502,
+            headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+          }),
+      ),
+    )
+    const err = (await api.profiles().catch((e: unknown) => e)) as ApiError
+    expect(err.code).toBe('http_502')
+    expect(err.message).toBe('The server answered HTTP 502')
+  })
+
   it('reports an unreachable server as offline', async () => {
     vi.stubGlobal(
       'fetch',

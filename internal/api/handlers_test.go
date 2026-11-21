@@ -267,7 +267,7 @@ func TestConnectErrors(t *testing.T) {
 		},
 		{
 			name: "untrusted cert", body: `{"profile":"anon"}`,
-			dialErr: &ldapx.UntrustedCertError{Err: x509.UnknownAuthorityError{}}, wantStatus: http.StatusBadGateway, wantCode: "tls_untrusted",
+			dialErr: &ldapx.UntrustedCertError{Err: x509.UnknownAuthorityError{}}, wantStatus: http.StatusUnprocessableEntity, wantCode: "tls_untrusted",
 		},
 		{name: "unknown field", body: `{"profile":"dev","extra":1}`, wantStatus: http.StatusBadRequest, wantCode: "bad_request"},
 	}
@@ -615,13 +615,13 @@ func TestServerModeConnectErrors(t *testing.T) {
 		{
 			name: "network", body: typed,
 			err:    ldap.NewError(ldap.ErrorNetwork, errors.New("dial tcp: lookup ldap.corp.internal: no such host")),
-			logged: "ldap.corp.internal", wantStatus: http.StatusBadGateway,
+			logged: "ldap.corp.internal", wantStatus: http.StatusServiceUnavailable,
 			want: map[string]any{"code": "network", "message": "cannot reach the directory server"},
 		},
 		{
 			name: "untrusted certificate", body: typed,
 			err:    &ldapx.UntrustedCertError{Certificates: []*x509.Certificate{srv.Certificate()}, Err: x509.UnknownAuthorityError{}},
-			logged: "untrusted server certificate", wantStatus: http.StatusBadGateway,
+			logged: "untrusted server certificate", wantStatus: http.StatusUnprocessableEntity,
 			want: map[string]any{"code": "tls_untrusted", "message": "the directory server's certificate is not trusted"},
 		},
 	}
@@ -991,8 +991,8 @@ func TestConnectLogsPrevious(t *testing.T) {
 func TestConnectFailureCreatesNoSession(t *testing.T) {
 	env := newTestEnv(t)
 	env.dialErr = ldap.NewError(ldap.ErrorNetwork, errors.New("refused"))
-	if rec := env.do(t, http.MethodPost, "/api/connect", `{"profile":"manual","password":"pw"}`); rec.Code != http.StatusBadGateway {
-		t.Fatalf("connect with a failing dial = %d %s, want 502", rec.Code, rec.Body)
+	if rec := env.do(t, http.MethodPost, "/api/connect", `{"profile":"manual","password":"pw"}`); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("connect with a failing dial = %d %s, want 503", rec.Code, rec.Body)
 	}
 	if id := env.cookie(sessionCookie); id != "" {
 		t.Errorf("connect with a failing dial set session cookie %q, want none", id)

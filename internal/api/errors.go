@@ -59,6 +59,8 @@ func writeError(w http.ResponseWriter, status int, e apiError) {
 var errPasswordUnavailable = errors.New("the configured password for this profile is unavailable; see the server log")
 
 // errorResponse maps an error from the LDAP layer to an HTTP status and body.
+// It never answers 502 or 504: a proxy or CDN in front, Cloudflare for one,
+// replaces those with its own error page, and the UI would lose the body.
 func errorResponse(err error) (int, apiError) {
 	var certErr *ldapx.UntrustedCertError
 	var le *ldap.Error
@@ -66,7 +68,7 @@ func errorResponse(err error) (int, apiError) {
 	case errors.Is(err, errPasswordUnavailable):
 		return http.StatusInternalServerError, apiError{Code: "password_unavailable", Message: errPasswordUnavailable.Error()}
 	case errors.As(err, &certErr):
-		return http.StatusBadGateway, apiError{Code: "tls_untrusted", Message: certErr.Error(), Certificates: certInfos(certErr.Certificates)}
+		return http.StatusUnprocessableEntity, apiError{Code: "tls_untrusted", Message: certErr.Error(), Certificates: certInfos(certErr.Certificates)}
 	// net.ErrClosed means the session's connection was closed under the
 	// request, for example by idle expiry.
 	case errors.Is(err, session.ErrNoSession), errors.Is(err, session.ErrNotConnected), errors.Is(err, net.ErrClosed):
@@ -78,7 +80,7 @@ func errorResponse(err error) (int, apiError) {
 	case errors.Is(err, ldapx.ErrSecretFilter):
 		return http.StatusBadRequest, apiError{Code: "secret_filter", Message: err.Error()}
 	case errors.Is(err, context.DeadlineExceeded):
-		return http.StatusGatewayTimeout, apiError{Code: "timeout", Message: "the LDAP server did not answer in time"}
+		return http.StatusServiceUnavailable, apiError{Code: "timeout", Message: "the LDAP server did not answer in time"}
 	case errors.Is(err, context.Canceled):
 		return http.StatusServiceUnavailable, apiError{Code: "canceled", Message: "request canceled"}
 	case errors.As(err, &le):
@@ -114,10 +116,10 @@ func errorResponse(err error) (int, apiError) {
 			return http.StatusBadRequest, e
 		case ldap.ErrorNetwork:
 			e.Code = "network"
-			return http.StatusBadGateway, e
+			return http.StatusServiceUnavailable, e
 		}
 		e.Code = "ldap_error"
-		return http.StatusBadGateway, e
+		return http.StatusUnprocessableEntity, e
 	}
 	// Unexpected errors may name local files such as a CA file; the caller
 	// logs err, the client only learns that something failed.

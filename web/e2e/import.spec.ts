@@ -182,7 +182,7 @@ test('Stop ends the run after the request in flight, a lost connection or sessio
   await page.unroute('**/entries/add')
   await page.route('**/entries/add', (route) =>
     route.fulfill({
-      status: 502,
+      status: 503,
       json: { code: 'network', message: 'LDAP Result Code 200 "Network Error": EOF' },
     }),
   )

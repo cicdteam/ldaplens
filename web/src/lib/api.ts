@@ -147,11 +147,17 @@ async function request<T>(
     data = undefined
   }
   if (!res.ok) {
+    // Only a plain text body is a message: a proxy in front may answer with
+    // its own HTML error page.
+    const plain = res.headers.get('Content-Type')?.startsWith('text/plain') && text.trim()
     const err = new ApiError(
       res.status,
       isErrorBody(data)
         ? data
-        : { code: `http_${res.status}`, message: text.trim() || `HTTP ${res.status}` },
+        : {
+            code: `http_${res.status}`,
+            message: plain || `The server answered HTTP ${res.status}`,
+          },
     )
     if (errorKind(err) === 'auth' && !authLost) {
       authLost = true
