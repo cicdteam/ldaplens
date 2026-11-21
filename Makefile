@@ -81,7 +81,10 @@ image-multiarch: ## Build and check the image for amd64 and arm64 (IMAGE-amd64, 
 	  deploy/image-check.sh "$(IMAGE)-$$a" $$p "$$VERSION"; \
 	done
 
-check: fmt vet lint vuln test web-check chart-check ## Run every check: fmt vet lint vuln test web-check chart-check
+docs-check: ## Check that every relative link in the Markdown files names a file and heading that exist
+	node scripts/md-links.mjs
+
+check: fmt vet lint vuln test web-check chart-check docs-check ## Run every check: fmt vet lint vuln test web-check chart-check docs-check
 
 demo-start: ## Start the demo: OpenLDAP and Samba AD with sample data, and ldaplens (DEMO_PORT=8080)
 	$(DEMO_COMPOSE) up -d --build --wait
