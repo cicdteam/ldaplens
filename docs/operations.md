@@ -56,7 +56,7 @@ The directory's own audit log sees only the bind DN. A profile bound as a
 shared service account (`passwordEnv` or `passwordFile`) makes every write
 that account's, and with one shared token only `session` and `remote` tell
 people apart. For per-person accountability, use [per-user
-login](deployment.md#per-user-login): everyone binds as themselves with their own
+login](configuration.md#per-user-login): everyone binds as themselves with their own
 password, and both the directory and ldaplens log their DN.
 ## Operations
 
