@@ -22,16 +22,24 @@ a demo.
 
 ## Quick start
 
-On your machine, in local mode, with the saved connections and the login
-token in a volume:
+On your machine, in local mode: download the binary and run it.
+
+```sh
+curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz" | tar -xz ldaplens
+./ldaplens
+```
+
+Open the login link it prints and add a directory with **New connection**.
+The saved connections and the login token stay in your user config
+directory. [Verify the binary](docs/deployment.md#verify-the-binary) before
+you run it.
+
+With Docker instead (amd64 and arm64, [verify the
+image](docs/deployment.md#verify-the-image)), the same data in a volume:
 
 ```sh
 docker run --rm -p 127.0.0.1:8080:8080 -v ldaplens:/data ghcr.io/cicdteam/ldaplens local
 ```
-
-Open the login link from the log and add a directory with **New
-connection**. The image is for amd64 and arm64; [verify
-it](docs/deployment.md#verify-the-image) before you run it.
 
 For a team, in Kubernetes, with the Helm chart (every user signs in with
 their own uid and password):
@@ -75,7 +83,7 @@ See [Kubernetes](docs/deployment.md#kubernetes) for a `values.yaml`, and
 - [Using ldaplens](docs/ui.md): the UI, editing, Review/Apply, LDIF import.
 - [Configuration](docs/configuration.md): the two modes, `connections.yaml`,
   saved connections, every flag.
-- [Deployment](docs/deployment.md): Docker, running for a team, reverse
+- [Deployment](docs/deployment.md): the binary, Docker, running for a team, reverse
   proxies, Kubernetes, systemd.
 - [Logs and operations](docs/operations.md): what is logged, and what to do
   when something goes wrong.

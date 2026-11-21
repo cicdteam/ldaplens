@@ -116,14 +116,72 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
 
+  # The release archives, built on every run so a PR shows they still build.
+  binaries:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: make dist
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: binaries
+          path: dist/
+          retention-days: 7
+
+  # Runs each archive's binary natively, as a user would after the quick start.
+  binaries-check:
+    needs: binaries
+    strategy:
+      matrix:
+        include:
+          - name: Linux_x86_64
+            runner: ubuntu-26.04
+          - name: Linux_aarch64
+            runner: ubuntu-26.04-arm
+          - name: Darwin_arm64
+            runner: macos-26
+    name: binary-${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: binaries
+      - run: |
+          shasum -a 256 -c ldaplens_checksums.txt
+          # The quick start's URL: uname must name this runner's archive.
+          [ "$(uname -s)_$(uname -m)" = "$NAME" ] || { echo "::error::uname gives $(uname -s)_$(uname -m), want $NAME"; exit 1; }
+          tar -xzf "ldaplens_$(uname -s)_$(uname -m).tar.gz" ldaplens
+          got=$(./ldaplens --version)
+          [ "$got" = "ldaplens $VERSION" ] || { echo "::error::--version printed '$got', want 'ldaplens $VERSION'"; exit 1; }
+          echo "$NAME: ok, $got"
+        env:
+          NAME: ${{ matrix.name }}
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+
   # A v* tag on main publishes one multi-arch image, with an SBOM and a signed
   # provenance attestation, after every check passes, then the Helm chart
-  # with that appVersion. A chart-v* tag on main publishes only the chart.
+  # with that appVersion, then a draft GitHub release with the attested
+  # binaries; its notes are written and it is published by hand. A chart-v*
+  # tag on main publishes only the chart.
   # The Go and Node stages run on the build platform, so the arm64 half needs
   # no QEMU.
   publish:
     if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/chart-v')
-    needs: [check, integration, e2e, image, chart]
+    needs: [check, integration, e2e, image, chart, binaries-check]
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     environment: release # tag rules v* and chart-v*, optional required reviewer
@@ -131,7 +189,7 @@ jobs:
       group: publish
       cancel-in-progress: false
     permissions:
-      contents: read
+      contents: write # create the draft release with the binaries
       packages: write # push the image and the chart to ghcr.io
       id-token: write # Sigstore certificate for the attestations
       attestations: write # store the attestations
@@ -244,6 +302,28 @@ jobs:
           # The pushed chart, or the same chart found in ghcr.
           subject-digest: ${{ steps.chart.outputs.digest || steps.ghcr.outputs.digest }}
           push-to-registry: true
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: binaries
+          path: dist
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.tar.gz
+      # A re-run fills a draft again but leaves a published release alone.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        name: Attach the binaries to a draft release
+        run: |
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
+            [ "$draft" = true ] || { echo "release $GITHUB_REF_NAME is published already, leaving its assets"; exit 0; }
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --draft --verify-tag --title "$GITHUB_REF_NAME" --notes "Notes to come."
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
   # Runs the image check on the pushed image itself, pulled by digest without a
   # login, as a user would. A chart-v* tag pushes no image.

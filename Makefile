@@ -17,7 +17,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # VERSION is exported so recipes quote it as "$$VERSION": the shell never parses a tag name.
 export GOFUMPT_MIN GOIMPORTS_VERSION GOLANGCI_LINT_MIN GOVULNCHECK_MIN HELM_MIN KUBECONFORM_MIN GO_IMAGE VERSION
 
-.PHONY: help fmt vet lint vuln test test-integration build image image-multiarch check web web-check chart-check chart-kind e2e demo-start demo-stop
+.PHONY: help fmt vet lint vuln test test-integration build dist image image-multiarch check web web-check chart-check chart-kind e2e demo-start demo-stop
 
 .DEFAULT_GOAL := help
 
@@ -67,6 +67,21 @@ e2e: ## Run the Playwright e2e tests against OpenLDAP and Samba AD in Docker
 
 build: web ## Build bin/ldaplens with the embedded UI
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$$VERSION" -o bin/ldaplens ./cmd/ldaplens
+
+# Release archives named as uname -s and uname -m print, so the quick start
+# needs no mapping, and without the version, so
+# releases/latest/download/<name> stays one URL. GOOS/GOARCH:uname.
+DIST_PLATFORMS := linux/amd64:Linux_x86_64 linux/arm64:Linux_aarch64 darwin/arm64:Darwin_arm64
+dist: web ## Build the release archives and checksums into dist/
+	rm -rf dist && mkdir -p dist
+	set -e; for p in $(DIST_PLATFORMS); do \
+	  t=$${p%:*}; n=ldaplens_$${p#*:}; mkdir -p dist/$$n; \
+	  CGO_ENABLED=0 GOOS=$${t%/*} GOARCH=$${t#*/} go build -trimpath -ldflags="-s -w -X main.version=$$VERSION" -o dist/$$n/ldaplens ./cmd/ldaplens; \
+	  cp LICENSE README.md dist/$$n/; \
+	  tar -czf dist/$$n.tar.gz -C dist/$$n ldaplens LICENSE README.md; \
+	  rm -r dist/$$n; \
+	done
+	cd dist && shasum -a 256 *.tar.gz >ldaplens_checksums.txt
 
 image: ## Build the Docker image (IMAGE=ldaplens:dev by default)
 	docker build -f deploy/Dockerfile --build-arg VERSION="$$VERSION" -t $(IMAGE) .

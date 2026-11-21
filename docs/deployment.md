@@ -1,6 +1,55 @@
 # Deployment
 
-Docker, running ldaplens for a team, reverse proxies, Kubernetes and systemd.
+The binary, Docker, running ldaplens for a team, reverse proxies, Kubernetes and systemd.
+
+## Run the binary
+
+Each release has static binaries for Linux (amd64, arm64) and macOS (Apple
+silicon), as `ldaplens_Linux_x86_64.tar.gz`, `ldaplens_Linux_aarch64.tar.gz`
+and `ldaplens_Darwin_arm64.tar.gz` (named as `uname -s` and `uname -m`
+print), each with `LICENSE` and `README.md`,
+and their SHA-256 sums in `ldaplens_checksums.txt`. The names carry no
+version, so `releases/latest/download/<name>` always gives the newest
+release, and `releases/download/v<version>/<name>` a given one:
+
+```sh
+curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz" | tar -xz ldaplens
+./ldaplens
+```
+
+There is no build for Intel Macs or Windows: there `curl` fails with 404;
+use the [Docker image](#run-with-docker).
+
+With no arguments it runs `local`, on `127.0.0.1:8080` (`--listen` changes
+it), and keeps the saved connections and the token in the user config
+directory (`~/.config/ldaplens` on Linux, `~/Library/Application
+Support/ldaplens` on macOS; `--data-dir` changes it). Open the login link it
+prints. `./ldaplens server --config connections.yaml` runs server mode.
+
+The macOS binary is not signed by Apple. `curl` leaves it runnable; one
+downloaded with a browser is held in quarantine, and macOS refuses to open
+it until you clear that:
+
+```sh
+xattr -d com.apple.quarantine ldaplens
+```
+
+### Verify the binary
+
+Each archive carries a signed build provenance, like the image. Check it with
+the [GitHub CLI](https://cli.github.com) before you unpack it:
+
+```sh
+curl -fsSLO "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz"
+gh attestation verify "ldaplens_$(uname -s)_$(uname -m).tar.gz" \
+  --repo cicdteam/ldaplens \
+  --signer-workflow cicdteam/ldaplens/.github/workflows/ci.yml &&
+  tar -xzf "ldaplens_$(uname -s)_$(uname -m).tar.gz" ldaplens
+```
+
+Add `--source-ref refs/tags/v<version>` to pin the release, or compare the
+archive with `ldaplens_checksums.txt` (`sha256sum -c --ignore-missing
+ldaplens_checksums.txt`, `shasum -a 256 -c` on macOS).
 
 ## Run with Docker
 
@@ -296,9 +345,8 @@ gh attestation verify "oci://ghcr.io/cicdteam/charts/ldaplens@$digest" \
 ### systemd
 
 On a Linux server, run ldaplens as a service on loopback behind a reverse
-proxy on the same host, such as the nginx example above. The binary is
-static: `make build` builds `bin/ldaplens`, or copy `/ldaplens` out of the
-image. The unit runs it in local mode as a dynamic user in a sandbox, with
+proxy on the same host, such as the nginx example above, with the
+[release binary](#run-the-binary) (or `bin/ldaplens` from `make build`). The unit runs it in local mode as a dynamic user in a sandbox, with
 saved connections in `/var/lib/ldaplens` (0700); for fixed profiles only, run
 server mode: put `server` before `--config` in `ExecStart` and drop the
 `LDAPLENS_DATA_DIR` line.
