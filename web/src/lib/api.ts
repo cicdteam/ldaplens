@@ -147,11 +147,17 @@ async function request<T>(
     data = undefined
   }
   if (!res.ok) {
+    // Only a plain text body is a message: a proxy in front may answer with
+    // its own HTML error page.
+    const plain = res.headers.get('Content-Type')?.startsWith('text/plain') && text.trim()
     const err = new ApiError(
       res.status,
       isErrorBody(data)
         ? data
-        : { code: `http_${res.status}`, message: text.trim() || `HTTP ${res.status}` },
+        : {
+            code: `http_${res.status}`,
+            message: plain || unreadable(res.status),
+          },
     )
     if (errorKind(err) === 'auth' && !authLost) {
       authLost = true
@@ -211,6 +217,13 @@ export const api = {
  * The fields POST /api/profiles accepts; it rejects the computed ones. Only
  * an editable profile gets here, and local mode sends every field of it.
  */
+/** The message for an error answer without a body ldaplens wrote, such as a proxy's page. */
+function unreadable(status: number): string {
+  return status >= 500
+    ? `The ldaplens server did not answer properly (HTTP ${status}). Try again in a moment, or reload the page.`
+    : `Unexpected answer from the ldaplens server (HTTP ${status}). Reload the page.`
+}
+
 export function toProfileInput(p: Profile): ProfileInput {
   const { name, url, startTLS, baseDN, bindDN, caPEM, insecureSkipVerify, color, readOnly } = p
   return {

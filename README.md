@@ -79,8 +79,8 @@ empty. In server mode:
   `matchedDN` or `ldapResultCode`: the directory's message, and the reason
   decoded from it, such as Active Directory's `account locked out`, would
   tell anyone who tries a name that the account exists. A server that
-  cannot be reached answers 502 `network` with `cannot reach the directory
-  server`, and an untrusted certificate 502 `tls_untrusted` with `the
+  cannot be reached answers 503 `network` with `cannot reach the directory
+  server. Try again in a moment.`, and an untrusted certificate 422 `tls_untrusted` with `the
   directory server's certificate is not trusted`, without host names, the
   error text or the certificate chain. The server log keeps the full error
   in `connect failed`.
@@ -678,7 +678,7 @@ such as one on a shared profile from a browser that has typed no password,
 counts only toward the 64. A request that waits more than 10
 seconds gets 503 `busy` with `Retry-After: 1`; the UI retries a read that
 gets it up to 3 times, a second apart, and never retries a write. Once
-running, an API request has 2 minutes before it ends with 504 `timeout`. An
+running, an API request has 2 minutes before it ends with 503 `timeout`. An
 Apply has 4 minutes and stops between entries instead: when its time runs
 out or its browser goes away, a modify already sent to the server finishes,
 the entries before the stop stay applied, and the response is a 200 that
@@ -929,6 +929,11 @@ Set up the proxy and ldaplens together:
   bigger body gets 413, and a longer Apply gets 504 from the proxy. When the
   proxy closes the connection, ldaplens stops before the next entry, so some
   entries are written and the browser does not learn which.
+- **Error pages**: ldaplens never answers 502 or 504 itself, since a proxy
+  or CDN may put its own error page in place of those (Cloudflare does). A
+  proxy that replaces other error responses hides ldaplens's messages, and
+  the UI then shows only the status: `The ldaplens server did not answer
+  properly (HTTP 503). Try again in a moment, or reload the page.`
 - **`Origin` and `Sec-Fetch-Site`** reach ldaplens as the browser sent them.
   Its cross-origin check reads them, and a proxy that clears or rewrites
   them turns the check off.

@@ -240,7 +240,7 @@ func TestWriteEntriesLDAPErrors(t *testing.T) {
 		{
 			name: "add: network error names nothing", path: "entries/add", body: addBody,
 			err:        ldap.NewError(ldap.ErrorNetwork, errors.New("description: connection reset")),
-			wantStatus: http.StatusBadGateway, wantCode: "network", wantLog: addLog,
+			wantStatus: http.StatusServiceUnavailable, wantCode: "network", wantLog: addLog,
 		},
 		{
 			name: "delete: non-leaf", path: "entries/delete", body: deleteBody,

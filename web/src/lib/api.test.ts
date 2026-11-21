@@ -67,6 +67,41 @@ describe('request', () => {
     expect(err.message).toBe('Bad Gateway')
   })
 
+  it('does not show a proxy error page as the message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response('<!DOCTYPE html><html><title>502: Bad gateway</title></html>', {
+            status: 502,
+            headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+          }),
+      ),
+    )
+    const err = (await api.profiles().catch((e: unknown) => e)) as ApiError
+    expect(err.code).toBe('http_502')
+    expect(err.message).toBe(
+      'The ldaplens server did not answer properly (HTTP 502). Try again in a moment, or reload the page.',
+    )
+  })
+
+  it('does not show a 4xx page either', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response('<html>Not Found</html>', {
+            status: 404,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    )
+    const err = (await api.profiles().catch((e: unknown) => e)) as ApiError
+    expect(err.message).toBe(
+      'Unexpected answer from the ldaplens server (HTTP 404). Reload the page.',
+    )
+  })
+
   it('reports an unreachable server as offline', async () => {
     vi.stubGlobal(
       'fetch',
