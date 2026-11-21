@@ -1,6 +1,7 @@
 // Checks the links of every tracked Markdown file: a relative link, or one to
 // this repository's main branch on GitHub, must name a file that exists and,
-// with #anchor, a heading in it (GitHub's anchor rules). External links are
+// with #anchor, a heading in it (GitHub's anchor rules; only for Markdown
+// targets, since an image's #gh-dark-mode-only is not a heading). External links are
 // not fetched.
 // Usage: node scripts/md-links.mjs (from the repository root)
 import { execFileSync } from 'node:child_process'
@@ -66,7 +67,7 @@ for (const file of files) {
     if (!existsSync(to)) {
       console.log(`${file}: ${m[1]}: no ${to}`)
       failed++
-    } else if (anchor !== undefined && !(statSync(to).isFile() && anchors(to).has(anchor))) {
+    } else if (anchor !== undefined && to.endsWith('.md') && !(statSync(to).isFile() && anchors(to).has(anchor))) {
       console.log(`${file}: ${m[1]}: no heading #${anchor} in ${to}`)
       failed++
     }

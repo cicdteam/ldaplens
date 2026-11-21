@@ -4,6 +4,9 @@ A web UI to view, search and manage LDAP data: an LDAP browser and editor for
 OpenLDAP and Active Directory. One binary or one container, nothing to install
 next to it.
 
+![ldaplens: the directory tree, a search for engineers, and a person's entry with a staged change waiting for Review](docs/images/ldaplens-light.png#gh-light-mode-only)
+![ldaplens: the directory tree, a search for engineers, and a person's entry with a staged change waiting for Review](docs/images/ldaplens-dark.png#gh-dark-mode-only)
+
 ## Try it online
 
 [demo.ldaplens.com](https://demo.ldaplens.com) runs ldaplens in server mode on
