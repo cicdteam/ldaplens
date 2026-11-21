@@ -47,6 +47,7 @@
     "basePath": {"type": "string", "pattern": "^(/[A-Za-z0-9._-]+)*$"},
     "trustedProxies": {"type": "array", "items": {"type": "string"}},
     "notice": {"type": "string"},
+    "noticeColor": {"type": "string", "pattern": "^(#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}))?$"},
     "session": {
       "type": "object",
       "additionalProperties": false,

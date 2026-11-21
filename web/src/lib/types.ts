@@ -10,6 +10,8 @@ export interface ServerInfo {
   mode: 'local' | 'server'
   /** The operator's plain-text message (--notice); absent when none. */
   notice?: string
+  /** The notice strip's background (--notice-color), #rgb or #rrggbb; absent when none. */
+  noticeColor?: string
 }
 
 /**

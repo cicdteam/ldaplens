@@ -68,6 +68,7 @@ type config struct {
 	sessionMaxAge time.Duration
 	secureCookies bool
 	notice        string
+	noticeColor   string
 	showVersion   bool
 
 	trustedProxies []netip.Prefix
@@ -77,6 +78,8 @@ var (
 	basePathPattern = regexp.MustCompile(`^(/[A-Za-z0-9._-]+)*/?$`)
 	// authTokenPattern keeps tokens safe in cookies and URLs without escaping.
 	authTokenPattern = regexp.MustCompile(`^[A-Za-z0-9._~-]{16,}$`)
+	// noticeColorPattern takes hex only: the UI computes the text color from it.
+	noticeColorPattern = regexp.MustCompile(`^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$`)
 )
 
 // authTokenRule describes authTokenPattern in errors, which never echo the
@@ -160,6 +163,7 @@ func parseArgs(args []string, getenv func(string) string, usage io.Writer) (conf
 	fs.StringVar(&proxies, "trusted-proxies", env("LDAPLENS_TRUSTED_PROXIES", ""),
 		"CIDRs or IPs of reverse proxies whose X-Forwarded-For is trusted for the client address, comma-separated (env LDAPLENS_TRUSTED_PROXIES)")
 	fs.BoolVar(&c.secureCookies, "secure-cookies", secure, "mark cookies Secure on every request; TLS and X-Forwarded-Proto: https do so without it (env LDAPLENS_SECURE_COOKIES)")
+	fs.StringVar(&c.noticeColor, "notice-color", env("LDAPLENS_NOTICE_COLOR", ""), "background of the notice strip, #rgb or #rrggbb; the text is black or white, whichever reads better (env LDAPLENS_NOTICE_COLOR)")
 	fs.StringVar(&c.notice, "notice", env("LDAPLENS_NOTICE", ""), "plain-text message shown above the header on every page once the access token is accepted, at most 300 characters (env LDAPLENS_NOTICE)")
 	fs.BoolVar(&c.showVersion, "version", false, "print the version and exit")
 	if err := fs.Parse(args); err != nil {
@@ -236,6 +240,10 @@ func parseArgs(args []string, getenv func(string) string, usage io.Writer) (conf
 	c.notice = strings.TrimSpace(c.notice)
 	if n := utf8.RuneCountInString(c.notice); n > 300 {
 		return config{}, fmt.Errorf("--notice: %d characters, want at most 300", n)
+	}
+	c.noticeColor = strings.TrimSpace(c.noticeColor)
+	if c.noticeColor != "" && !noticeColorPattern.MatchString(c.noticeColor) {
+		return config{}, fmt.Errorf("--notice-color %q: want #rgb or #rrggbb", c.noticeColor)
 	}
 	// The token is a secret, so the error does not echo it.
 	if c.authToken != "" && !authTokenPattern.MatchString(c.authToken) {
@@ -417,7 +425,7 @@ func runTo(args []string, stdout io.Writer) error {
 		Catalog: catalog, Dial: dial, Sessions: sessions, Shared: shared,
 		AllowedHosts: cfg.allowedHosts, AuthToken: cfg.authToken, BasePath: cfg.basePath,
 		SecureCookies: cfg.secureCookies, TrustedProxies: cfg.trustedProxies,
-		Notice: cfg.notice, Server: cfg.mode == modeServer, UI: web.Dist(), Logger: logger,
+		Notice: cfg.notice, NoticeColor: cfg.noticeColor, Server: cfg.mode == modeServer, UI: web.Dist(), Logger: logger,
 	}))
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.listen)
 	if err != nil {

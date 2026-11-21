@@ -45,6 +45,8 @@ type server struct {
 	serverMode bool
 	// notice is Options.Notice.
 	notice string
+	// noticeColor is Options.NoticeColor.
+	noticeColor string
 }
 
 // mode tells the UI the mode, so that it hides what server mode does not
@@ -56,6 +58,9 @@ func (s *server) mode(w http.ResponseWriter, _ *http.Request) {
 	}
 	if s.notice != "" {
 		resp["notice"] = s.notice
+		if s.noticeColor != "" {
+			resp["noticeColor"] = s.noticeColor
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

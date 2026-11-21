@@ -8,6 +8,7 @@ imagePullSecrets:
 replicaCount: 3
 trustedProxies: [10.244.0.0/16, 192.0.2.10]
 notice: Test directory, reset every night. Use <b>your own</b> uid.
+noticeColor: "#f59e0b"
 session:
   idle: 15m
   maxAge: 4h

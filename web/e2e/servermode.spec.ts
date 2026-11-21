@@ -17,6 +17,9 @@ test('server mode shows no saving and no trust', async ({ page }) => {
   const notice = page.getByRole('note', { name: 'Notice' })
   const text = 'Public demo <b>x</b>\nsecond'
   await expect(notice).toHaveJSProperty('innerText', text)
+  // --notice-color fills the strip, with the text color that reads on it.
+  await expect(notice).toHaveCSS('background-color', 'rgb(245, 158, 11)')
+  await expect(notice).toHaveCSS('color', 'rgb(0, 0, 0)')
   // Nothing about where a profile binds before a sign-in.
   await expect(page.getByText('127.0.0.1')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'New connection' })).toHaveCount(0)
