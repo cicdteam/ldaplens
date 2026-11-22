@@ -153,6 +153,8 @@ jobs:
             runner: ubuntu-26.04-arm
           - name: Darwin_arm64
             runner: macos-26
+          - name: Darwin_x86_64
+            runner: macos-15-intel
     name: binary-${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10

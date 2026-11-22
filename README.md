@@ -32,7 +32,14 @@ VPN.
 
 ## Quick start
 
-On your machine, in local mode: download the binary and run it.
+On your machine, in local mode. On macOS, with Homebrew:
+
+```sh
+brew install cicdteam/tap/ldaplens
+ldaplens
+```
+
+Or download the binary and run it (Linux or macOS):
 
 ```sh
 curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaplens_$(uname -s)_$(uname -m).tar.gz" | tar -xz ldaplens
@@ -40,10 +47,9 @@ curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaple
 ```
 
 It opens the UI in your browser (or prints the link to open); add a
-directory with **New connection**.
-The saved connections and the login token stay in your user config
-directory. [Verify the binary](docs/deployment.md#verify-the-binary) before
-you run it.
+directory with **New connection**. The saved connections and the login
+token stay in your user config directory. [Verify the
+binary](docs/deployment.md#verify-the-binary) before you run it.
 
 With Docker instead (amd64 and arm64, [verify the
 image](docs/deployment.md#verify-the-image)), the same data in a volume:
