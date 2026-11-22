@@ -66,7 +66,10 @@ export function DeleteDialog({ dn, close }: { dn: string; close: () => void }) {
       {kids.isError && <ErrorBanner error={kids.error} />}
       {n > 0 && <p className="text-sm text-danger">{childrenNote(n)}</p>}
       {n === 0 && groups.data?.refs?.length ? (
-        <GroupNote dns={groups.data.refs.map((r) => r.dn)} truncated={!!groups.data.truncated} />
+        <GroupNote
+          dns={groups.data.refs.map((r) => r.dn)}
+          truncated={!!groups.data.truncated || !!groups.data.skipped?.length}
+        />
       ) : null}
       {kids.isSuccess && n === 0 && (
         <label className="flex flex-col gap-1 text-xs">

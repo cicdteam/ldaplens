@@ -129,6 +129,8 @@ export interface Ref {
 export interface Membership {
   refs?: Ref[]
   truncated?: boolean
+  /** Attributes the server refused to search on (such as an unindexed memberUid). */
+  skipped?: string[]
 }
 
 export interface AttributeType {

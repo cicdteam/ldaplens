@@ -244,6 +244,13 @@ function RefList({
           server limit).
         </Banner>
       )}
+      {!!query.data?.skipped?.length && (
+        <Banner tone="warn">
+          The server refused to search {query.data.skipped.join(' and ')} (usually because it is not
+          indexed there), so groups that list this entry only in{' '}
+          {query.data.skipped.length === 1 ? 'that attribute' : 'those attributes'} are missing.
+        </Banner>
+      )}
       {query.isSuccess && all.length === 0 && <p className="px-2 py-1 text-muted">None.</p>}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div style={{ height: virt.getTotalSize(), position: 'relative' }}>

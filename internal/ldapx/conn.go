@@ -76,6 +76,9 @@ type Conn struct {
 	lc     *ldap.Conn // shared; nil until the next read dials one
 	closed bool
 	schema *schema.Schema
+	// refused names the membership attributes the server refuses to
+	// search on (see MemberOf), so that later scans leave them out.
+	refused map[string]bool
 
 	// dialFn replaces dial when set, so that tests can stall a redial.
 	dialFn func(ctx context.Context, password string) (*ldap.Conn, error)

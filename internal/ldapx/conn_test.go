@@ -28,6 +28,7 @@ import (
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/go-ldap/ldap/v3"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/cicdteam/ldaplens/internal/profile"
 	"github.com/cicdteam/ldaplens/internal/schema"
@@ -1392,5 +1393,69 @@ func TestInfoBindDN(t *testing.T) {
 	t.Cleanup(func() { _ = c.Close() })
 	if got := c.Info().BindDN; got != dn {
 		t.Errorf("Dial(%s).Info().BindDN = %q, want %q", dn, got, dn)
+	}
+}
+
+// TestMemberOfUnindexedAttribute checks MemberOf against a server that, like
+// OpenDJ or 389 DS without the right privilege, refuses a search on an
+// unindexed attribute (memberUid here) with result 50: the groups found by
+// member and uniqueMember still come back, memberUid is reported as
+// skipped, the connection does not ask for it again, and a server that
+// refuses every attribute still fails with its own error.
+func TestMemberOfUnindexedAttribute(t *testing.T) {
+	var memberUidAsked atomic.Int32
+	serve := func(refuseAll bool) func(int32, net.Conn) {
+		return func(_ int32, conn net.Conn) {
+			for {
+				s, err := readSearch(conn)
+				if err != nil {
+					return
+				}
+				code := int64(ldap.LDAPResultSuccess)
+				switch {
+				case s.base != "": // the entry read for its uid values
+					err = writeEntry(conn, s.id, s.base, &ldap.EntryAttribute{Name: "uid", Values: []string{"a"}})
+				case strings.Contains(s.filter, "memberUid"):
+					memberUidAsked.Add(1)
+					code = ldap.LDAPResultInsufficientAccessRights
+				case refuseAll:
+					code = ldap.LDAPResultInsufficientAccessRights
+				default: // one filter or an OR of them
+					if strings.Contains(s.filter, "(member=uid=a)") {
+						err = writeEntry(conn, s.id, "cn=g1")
+					}
+					if err == nil && strings.Contains(s.filter, "(uniqueMember=uid=a)") {
+						err = writeEntry(conn, s.id, "cn=g2")
+					}
+				}
+				if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, code) != nil {
+					return
+				}
+			}
+		}
+	}
+
+	url, _ := fakeServer(t, serve(false))
+	c := fakeConn(t, url)
+	for i := range 2 {
+		m, err := c.MemberOf(context.Background(), "uid=a", false)
+		if err != nil {
+			t.Fatalf("MemberOf() call %d error = %v", i+1, err)
+		}
+		want := Membership{Refs: []Ref{{DN: "cn=g1"}, {DN: "cn=g2"}}, Skipped: []string{"memberUid"}}
+		if diff := cmp.Diff(want, m); diff != "" {
+			t.Errorf("MemberOf() call %d mismatch (-want +got):\n%s", i+1, diff)
+		}
+	}
+	// The first call asks for memberUid in the combined filter, then alone;
+	// the second call leaves it out.
+	if got := memberUidAsked.Load(); got != 2 {
+		t.Errorf("searches naming memberUid = %d, want 2", got)
+	}
+
+	url, _ = fakeServer(t, serve(true))
+	_, err := fakeConn(t, url).MemberOf(context.Background(), "uid=a", false)
+	if !ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights) {
+		t.Errorf("MemberOf() with every attribute refused error = %v, want result 50", err)
 	}
 }

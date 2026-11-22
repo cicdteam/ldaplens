@@ -6,6 +6,7 @@ package ldapx
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/go-ldap/ldap/v3"
@@ -24,6 +25,9 @@ type Ref struct {
 type Membership struct {
 	Refs      []Ref `json:"refs"`
 	Truncated bool  `json:"truncated,omitempty"`
+	// Skipped names the attributes the server refused to search on, such as
+	// an unindexed memberUid: the groups that list dn only there are missing.
+	Skipped []string `json:"skipped,omitempty"`
 }
 
 const (
@@ -61,14 +65,13 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 		}
 		var next []string
 		for _, member := range frontier {
-			escaped := ldap.EscapeFilter(member)
-			filter := fmt.Sprintf("(member=%s)(uniqueMember=%s)", escaped, escaped)
+			terms := []term{{"member", member}, {"uniqueMember", member}}
 			if depth == 0 {
 				for _, u := range uids {
-					filter += fmt.Sprintf("(memberUid=%s)", ldap.EscapeFilter(u))
+					terms = append(terms, term{"memberUid", u})
 				}
 			}
-			groups, truncated, err := c.allDNs(ctx, "(|"+filter+")", maxRefs)
+			groups, truncated, err := c.groupsListing(ctx, terms, &m)
 			if err != nil {
 				return Membership{}, err
 			}
@@ -96,6 +99,92 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 		frontier = next
 	}
 	return m, nil
+}
+
+// term is one attribute=value assertion of a membership scan.
+type term struct{ attr, value string }
+
+// groupsListing returns the groups under the base DN that match any of
+// terms. It asks once, with one OR filter. Some servers refuse a search
+// that names an unindexed attribute (OpenDJ and 389 DS answer result 50,
+// "unindexed search", without a special privilege; others 53 or 11), and
+// an OR is unindexed as soon as one of its parts is. Then it asks per
+// attribute, keeps what the server answers, and records the attributes it
+// refused in m.Skipped and on c, so later scans leave them out. When every
+// attribute is refused, the refusal is the error.
+func (c *Conn) groupsListing(ctx context.Context, terms []term, m *Membership) ([]string, bool, error) {
+	c.mu.Lock()
+	byAttr := map[string][]string{}
+	var attrs []string
+	for _, t := range terms {
+		if c.refused[t.attr] {
+			skip(m, t.attr)
+			continue
+		}
+		if byAttr[t.attr] == nil {
+			attrs = append(attrs, t.attr)
+		}
+		byAttr[t.attr] = append(byAttr[t.attr], fmt.Sprintf("(%s=%s)", t.attr, ldap.EscapeFilter(t.value)))
+	}
+	c.mu.Unlock()
+	if len(attrs) == 0 {
+		return nil, false, nil
+	}
+	var all []string
+	for _, a := range attrs {
+		all = append(all, byAttr[a]...)
+	}
+	groups, truncated, err := c.allDNs(ctx, orFilter(all), maxRefs)
+	if err == nil || !refusesSearch(err) || len(attrs) == 1 {
+		return groups, truncated, err
+	}
+	firstErr := err
+	groups, truncated = nil, false
+	answered := 0
+	for _, a := range attrs {
+		g, t, err := c.allDNs(ctx, orFilter(byAttr[a]), maxRefs)
+		switch {
+		case err == nil:
+			answered++
+			groups, truncated = append(groups, g...), truncated || t
+		case refusesSearch(err):
+			c.mu.Lock()
+			if c.refused == nil {
+				c.refused = map[string]bool{}
+			}
+			c.refused[a] = true
+			c.mu.Unlock()
+			skip(m, a)
+		default:
+			return nil, false, err
+		}
+	}
+	if answered == 0 {
+		return nil, false, firstErr
+	}
+	return groups, truncated, nil
+}
+
+// orFilter joins filters into one OR, or returns the only one.
+func orFilter(fs []string) string {
+	if len(fs) == 1 {
+		return fs[0]
+	}
+	return "(|" + strings.Join(fs, "") + ")"
+}
+
+// skip adds attr to m.Skipped once.
+func skip(m *Membership, attr string) {
+	if !slices.Contains(m.Skipped, attr) {
+		m.Skipped = append(m.Skipped, attr)
+	}
+}
+
+// refusesSearch reports whether err is a server declining a search as such
+// (insufficient access, unwilling to perform, admin limit), as it does for
+// one it would have to run without an index.
+func refusesSearch(err error) bool {
+	return ldap.IsErrorAnyOf(err, ldap.LDAPResultInsufficientAccessRights, ldap.LDAPResultUnwillingToPerform, ldap.LDAPResultAdminLimitExceeded)
 }
 
 // Members returns the member and uniqueMember values of group dn. With

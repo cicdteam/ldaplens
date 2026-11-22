@@ -157,3 +157,30 @@ test('an add still reading the group stages once, and Mod+S reviews it once stag
   await expect(row(page, 'Member of', group).getByRole('img', { name: 'added' })).toBeVisible()
   await expect(list(page, 'Member of').getByRole('alert')).toHaveCount(0)
 })
+
+test('a server that refuses an unindexed memberUid: the groups it found, and a note', async ({
+  page,
+}) => {
+  // OpenDJ and 389 DS answer such a search with result 50; the backend then
+  // searches per attribute and reports the one it skipped (Go tests cover
+  // that). Here the answer is made to carry it.
+  await page.route(
+    (url) => url.pathname.endsWith('/memberof'),
+    async (route) => {
+      const res = await route.fetch()
+      await route.fulfill({
+        response: res,
+        json: { ...(await res.json()), skipped: ['memberUid'] },
+      })
+    },
+  )
+  await openEntry(page, 'demo', 'uid=user001,ou=people,dc=example,dc=org')
+  await page.getByRole('tab', { name: 'Membership' }).click()
+  await expect(
+    page.getByText(
+      'The server refused to search memberUid (usually because it is not indexed there), so groups that list this entry only in that attribute are missing.',
+    ),
+  ).toBeVisible()
+  // The groups the server did find are still listed.
+  await expect(list(page, 'Member of').locator('[data-ref]').first()).toBeVisible()
+})
