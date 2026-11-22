@@ -496,6 +496,10 @@ func TestSaveProfile(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"editable":true`) {
 		t.Errorf("save = %d %s, want 200 editable", rec.Code, rec.Body)
 	}
+	rec = env.do(t, http.MethodPost, "/api/profiles", `{"name":"me","url":"ldap://lab:389","bindDNTemplate":"uid={user},dc=lab"}`)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, `"userLogin":true`) || !strings.Contains(body, `"bindDNTemplate":"uid={user},dc=lab"`) {
+		t.Errorf("save with bindDNTemplate = %d %s, want 200 userLogin with the template", rec.Code, body)
+	}
 	tests := []struct {
 		name       string
 		body       string
@@ -505,6 +509,7 @@ func TestSaveProfile(t *testing.T) {
 		{name: "file reference", body: `{"name":"x","url":"ldap://h","passwordFile":"/etc/passwd"}`, wantStatus: http.StatusBadRequest, wantCode: "bad_request"},
 		{name: "fixed name", body: `{"name":"dev","url":"ldap://h"}`, wantStatus: http.StatusConflict, wantCode: "profile_fixed"},
 		{name: "invalid", body: `{"name":"x","url":"http://h"}`, wantStatus: http.StatusBadRequest, wantCode: "invalid_profile"},
+		{name: "template and bindDN", body: `{"name":"x","url":"ldap://h","bindDN":"cn=a","bindDNTemplate":"uid={user}"}`, wantStatus: http.StatusBadRequest, wantCode: "invalid_profile"},
 		{name: "too large", body: `{"name":"big","url":"ldap://h","baseDN":"dc=` + strings.Repeat("a", profile.MaxProfileBytes) + `"}`, wantStatus: http.StatusConflict, wantCode: "profile_limit"},
 	}
 	for _, tc := range tests {

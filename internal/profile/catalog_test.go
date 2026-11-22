@@ -59,13 +59,43 @@ func TestCatalogSaveStripsFileReferences(t *testing.T) {
 	}
 	got, err := c.Save(Profile{
 		Name: "x", URL: "ldap://h", PasswordFile: "/etc/passwd", PasswordEnv: "HOME", CAFile: "/etc/hosts",
-		BindDNTemplate: "{user}@corp.example",
 	})
 	if err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
-	if got.PasswordFile != "" || got.PasswordEnv != "" || got.CAFile != "" || got.BindDNTemplate != "" {
-		t.Errorf("Save() = %+v, want file, env and config-only fields cleared", got)
+	if got.PasswordFile != "" || got.PasswordEnv != "" || got.CAFile != "" {
+		t.Errorf("Save() = %+v, want file and env fields cleared", got)
+	}
+}
+
+// A saved profile can ask each time for a username: the template points at
+// no local file or variable.
+func TestCatalogSaveKeepsBindDNTemplate(t *testing.T) {
+	dir := t.TempDir()
+	c, err := NewCatalog(nil, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const tmpl = "uid={user},ou=people,dc=example,dc=org"
+	if _, err := c.Save(Profile{Name: "x", URL: "ldap://h", BindDNTemplate: tmpl}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := c.Save(Profile{Name: "y", URL: "ldap://h", BindDNTemplate: "uid=jdoe,dc=example,dc=org"}); !errors.Is(err, ErrInvalid) {
+		t.Errorf("Save(template without {user}) error = %v, want ErrInvalid", err)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := NewCatalog(nil, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reloaded.Find("x")
+	if err != nil {
+		t.Fatalf("Find(x) after a reload error = %v", err)
+	}
+	if got.BindDNTemplate != tmpl || !got.UserLogin() {
+		t.Errorf("Find(x).BindDNTemplate = %q, want %q", got.BindDNTemplate, tmpl)
 	}
 }
 

@@ -20,6 +20,24 @@ certificate shows its chain and fingerprints; "Trust this CA and connect"
 stores it in a UI profile (for a yaml profile, put the PEM in `caPEM` or
 point `caFile` at it).
 
+**New connection** (local mode) asks three things in turn, and Edit shows
+the same steps, each reachable from the top:
+
+1. **Server**: host and port, and the security (LDAPS, StartTLS or none,
+   which warns that the password crosses the network in clear text). A
+   pasted `ldap://` or `ldaps://` URL fills all three. Then the base DN
+   (empty: the server's), and under TLS certificate options a CA in PEM and
+   Skip certificate verification.
+2. **Sign in**: **With my username** (the default: connect asks for a
+   username and a password, and binds as a `bindDNTemplate`), **As one fixed
+   DN** (connect asks for its password) or **Anonymously**. For a username,
+   OpenLDAP and others suggests `uid={user},ou=people,<base DN>` and Active
+   Directory `{user}@<domain of the base DN>`; the template must hold
+   `{user}` exactly once, and Try it shows the DN a sample username gives.
+3. **Name**: the name (from the host, in links and logs; fixed once saved),
+   a label, a color and Read-only, over a summary of what connect will ask
+   for.
+
 ### Layout and tree
 
 The tree is on the left and the entry card on the right. A search, or List

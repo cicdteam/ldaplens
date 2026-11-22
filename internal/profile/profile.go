@@ -59,7 +59,7 @@ type Profile struct {
 	StartTLS           bool          `yaml:"startTLS" json:"startTLS"`
 	BaseDN             string        `yaml:"baseDN" json:"baseDN,omitempty"`
 	BindDN             string        `yaml:"bindDN" json:"bindDN,omitempty"`
-	BindDNTemplate     string        `yaml:"bindDNTemplate" json:"-"`
+	BindDNTemplate     string        `yaml:"bindDNTemplate" json:"bindDNTemplate,omitempty"`
 	PasswordEnv        string        `yaml:"passwordEnv" json:"-"`
 	PasswordFile       string        `yaml:"passwordFile" json:"-"`
 	CAFile             string        `yaml:"caFile" json:"-"`

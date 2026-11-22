@@ -26,6 +26,8 @@ export interface Profile {
   startTLS?: boolean
   baseDN?: string
   bindDN?: string
+  /** Each person signs in as this DN (or UPN) with {user} replaced by their username. */
+  bindDNTemplate?: string
   caPEM?: string
   insecureSkipVerify?: boolean
   color?: string
@@ -49,6 +51,7 @@ export interface ProfileInput {
   startTLS: boolean
   baseDN?: string
   bindDN?: string
+  bindDNTemplate?: string
   caPEM?: string
   insecureSkipVerify: boolean
   color?: string
