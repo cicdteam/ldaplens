@@ -8,8 +8,9 @@ Building, testing and the Samba AD stand-in for Active Directory.
 (`make web-check`: typecheck, ESLint, Prettier, Vitest, npm audit of the
 production dependencies).
 `make test-integration` needs Docker; it runs OpenLDAP and Samba AD, and
-OpenDJ for Member of as a plain user (no `unindexed-search` privilege, with
-its `isMemberOf`). `make
+OpenDJ as a plain user with rights to edit groups (no `unindexed-search`
+privilege, with its `isMemberOf`): membership, paged listing, search, entry
+and schema reads, group edits, adds, renames and deletes. `make
 web` builds the UI into `web/dist`, which the Go binary embeds (`make build`
 does both).
 
