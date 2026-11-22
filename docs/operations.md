@@ -4,8 +4,15 @@ Logs, accountability and what to do when something goes wrong.
 
 ## Logs and accountability
 
-ldaplens logs to stdout, one `key=value` line per event. The lines below,
-except `auth failed`, end with who made them:
+ldaplens logs to stdout, one `key=value` line per event. On a terminal
+(`--log-format auto`, the default) it uses a console format for a person
+instead: a short banner at startup with the address, the login link (opened
+in the browser in local mode, unless `--no-browser`) and the connections,
+then one colored line per event with the same keys and values, and
+`Stopped.` at the end. `NO_COLOR` turns the colors off. Under Docker,
+Kubernetes, systemd or a pipe stdout is no terminal, so the `key=value`
+lines stay; `--log-format text` keeps them on a terminal too. The lines
+below, except `auth failed`, end with who made them:
 
 - `session`: the first 8 hex characters of the SHA-256 of the browser's
   session cookie, empty without one. A connect gives the browser a new

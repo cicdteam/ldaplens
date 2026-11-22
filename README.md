@@ -35,7 +35,8 @@ curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaple
 ./ldaplens
 ```
 
-Open the login link it prints and add a directory with **New connection**.
+It opens the UI in your browser (or prints the link to open); add a
+directory with **New connection**.
 The saved connections and the login token stay in your user config
 directory. [Verify the binary](docs/deployment.md#verify-the-binary) before
 you run it.
