@@ -35,11 +35,17 @@ export function isGroup(e: Entry): boolean {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-/** Natural order of the first RDN value; labels are parsed once (10000 refs: ~400 ms -> ms). */
+/**
+ * Natural order of the first RDN value; labels are parsed once (10000 refs: ~400 ms -> ms). The
+ * groups only the server lists (a source, such as isMemberOf) come after those the searches
+ * found, as they say less.
+ */
 export function sortRefs<T extends Ref>(refs: T[]): T[] {
   return refs
     .map((r) => ({ r, label: rdnValue(splitDN(r.dn)[0] ?? r.dn) }))
-    .sort((a, b) => collator.compare(a.label, b.label))
+    .sort(
+      (a, b) => Number(!!a.r.source) - Number(!!b.r.source) || collator.compare(a.label, b.label),
+    )
     .map((x) => x.r)
 }
 

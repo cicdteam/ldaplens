@@ -54,6 +54,21 @@ describe('refs', () => {
     ])
   })
 
+  it('puts the groups only the server lists (isMemberOf, memberOf) after the found ones', () => {
+    const mixed = [
+      { dn: 'cn=access,ou=g,dc=org', source: 'isMemberOf' },
+      { dn: 'cn=zeta,ou=g,dc=org' },
+      { dn: 'cn=Admins,ou=g,dc=org', source: 'isMemberOf' },
+      { dn: 'cn=beta,ou=g,dc=org', via: 'cn=zeta,ou=g,dc=org' },
+    ]
+    expect(sortRefs(mixed).map((r) => r.dn)).toEqual([
+      'cn=beta,ou=g,dc=org',
+      'cn=zeta,ou=g,dc=org',
+      'cn=access,ou=g,dc=org',
+      'cn=Admins,ou=g,dc=org',
+    ])
+  })
+
   it('filters on DN and via', () => {
     expect(filterRefs(refs, 'DEVS').map((r) => r.dn)).toEqual(['cn=User2,ou=p,dc=org'])
     expect(filterRefs(refs, ' ')).toBe(refs)
