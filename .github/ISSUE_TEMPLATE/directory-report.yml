@@ -1,0 +1,36 @@
+name: Works / doesn't work with my directory
+description: Tell us how ldaplens behaves against your directory server, good or bad.
+labels: [feedback]
+body:
+  - type: markdown
+    attributes:
+      value: Reports from directories we do not test ourselves (Windows Server AD, FreeIPA, 389 DS, LLDAP...) are especially welcome.
+  - type: input
+    id: server
+    attributes:
+      label: Directory server and version
+      placeholder: Active Directory on Windows Server 2022, OpenLDAP 2.6.10, FreeIPA 4.12...
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall
+      options:
+        - Works for what I need
+        - Works, with problems
+        - Does not work
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What you tried and how it went
+      description: Browsing, search, editing, group membership, LDIF import... What worked, what did not, what was missing.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ldaplens version and how you run it
+      placeholder: 1.7.1, Homebrew, local mode

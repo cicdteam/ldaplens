@@ -108,6 +108,12 @@ See [Kubernetes](docs/deployment.md#kubernetes) for a `values.yaml`, and
   Directory.
 - [Security](SECURITY.md): reporting a vulnerability.
 
+## Feedback
+
+Tried it? [Tell us how it went](https://github.com/cicdteam/ldaplens/discussions/43),
+good or bad. Bugs, and reports on how it works with your directory server,
+go to [issues](https://github.com/cicdteam/ldaplens/issues/new/choose).
+
 ## License
 
 [Apache License 2.0](LICENSE).
