@@ -244,6 +244,13 @@ function RefList({
           server limit).
         </Banner>
       )}
+      {!!query.data?.skipped?.length && (
+        <Banner tone="warn">
+          The server refused to search {query.data.skipped.join(' and ')} (usually because it is not
+          indexed there), so groups that list this entry only in{' '}
+          {query.data.skipped.length === 1 ? 'that attribute' : 'those attributes'} are missing.
+        </Banner>
+      )}
       {query.isSuccess && all.length === 0 && <p className="px-2 py-1 text-muted">None.</p>}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div style={{ height: virt.getTotalSize(), position: 'relative' }}>
@@ -271,14 +278,23 @@ function RefList({
                   )}
                 >
                   <DNButton dn={r.dn} onSelect={ws.select} />
-                  {nested &&
+                  {r.source ? (
+                    <span
+                      className="shrink-0 text-xs text-muted"
+                      title={`The server lists this group in the entry's ${r.source}; it may be a direct or a nested membership.`}
+                    >
+                      from {r.source}
+                    </span>
+                  ) : (
+                    nested &&
                     (r.via ? (
                       <span className="flex min-w-0 items-center gap-1 text-xs text-muted">
                         via <DNButton dn={r.via} onSelect={ws.select} />
                       </span>
                     ) : (
                       <span className="text-xs text-muted">direct</span>
-                    ))}
+                    ))
+                  )}
                 </div>
                 {editable &&
                   (undo ? (

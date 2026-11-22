@@ -125,6 +125,20 @@ the entry's `uid`); an equality index on each keeps it fast. Both lists stop
 at 10 000 entries and Nested at 10 levels, and are then marked "The list may
 be incomplete".
 
+Some servers refuse a search on an attribute that has no index unless the
+user has a special privilege (OpenDJ and 389 DS answer result 50, "unindexed
+search"); one unindexed attribute makes the whole search unindexed. Member
+of then searches each attribute alone, lists what the server answers, and
+names the attributes it refused (often `memberUid`) in a note above the list.
+Only when it refuses all of them does the tab show the error.
+
+Member of also reads the groups the server keeps on the entry itself,
+`isMemberOf` (OpenDJ) or `memberOf` (389 DS, FreeIPA, Active Directory,
+OpenLDAP with the memberof overlay). It lists those the searches did not
+reach, such as groups the user may not search, marked "from isMemberOf" (or
+memberOf): the server does not say whether such a membership is direct or
+nested, so these rows are not removed from here; open the group instead.
+
 ### Pending changes and status bar
 
 While changes are staged, a bar above the status bar shows how many, for

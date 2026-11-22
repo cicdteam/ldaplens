@@ -124,11 +124,18 @@ export interface Ref {
   dn: string
   /** For nested results, the group through which the membership comes. */
   via?: string
+  /**
+   * The entry attribute the server keeps (isMemberOf or memberOf) that listed a group the
+   * searches did not find; such a membership may be direct or nested.
+   */
+  source?: string
 }
 
 export interface Membership {
   refs?: Ref[]
   truncated?: boolean
+  /** Attributes the server refused to search on (such as an unindexed memberUid). */
+  skipped?: string[]
 }
 
 export interface AttributeType {

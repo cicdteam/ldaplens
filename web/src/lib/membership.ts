@@ -35,11 +35,17 @@ export function isGroup(e: Entry): boolean {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-/** Natural order of the first RDN value; labels are parsed once (10000 refs: ~400 ms -> ms). */
+/** Direct memberships first, then nested ones, then those only the server lists (isMemberOf). */
+const tier = (r: Ref) => (r.source ? 2 : r.via ? 1 : 0)
+
+/**
+ * By tier, then in natural order of the first RDN value; labels are parsed once (10000 refs:
+ * ~400 ms -> ms).
+ */
 export function sortRefs<T extends Ref>(refs: T[]): T[] {
   return refs
     .map((r) => ({ r, label: rdnValue(splitDN(r.dn)[0] ?? r.dn) }))
-    .sort((a, b) => collator.compare(a.label, b.label))
+    .sort((a, b) => tier(a.r) - tier(b.r) || collator.compare(a.label, b.label))
     .map((x) => x.r)
 }
 
@@ -151,9 +157,13 @@ export function memberOfView(refs: Ref[], entry: Entry, batch: Batch): Membershi
   return rows
 }
 
-/** Why a row cannot be removed here: a nested row comes through another group. '' if direct. */
+/**
+ * Why a row cannot be removed here: a nested row comes through another group, and one the server
+ * lists in isMemberOf or memberOf may be nested too. '' if direct.
+ */
 export function inheritedHint(r: Ref): string {
-  return r.via ? `Inherited through ${r.via}` : ''
+  if (r.via) return `Inherited through ${r.via}`
+  return r.source ? `Listed in the entry's ${r.source}: open the group to change it` : ''
 }
 
 /** Groups whose cn contains text, as "Add to group…" suggests them. */

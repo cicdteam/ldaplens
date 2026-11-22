@@ -6,7 +6,9 @@ package ldapx
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -16,6 +18,10 @@ import (
 type Ref struct {
 	DN  string `json:"dn"`
 	Via string `json:"via,omitempty"`
+	// Source names the entry attribute the server keeps (isMemberOf or
+	// memberOf) that listed a group the searches did not find; such a
+	// membership may be direct or nested.
+	Source string `json:"source,omitempty"`
 }
 
 // Membership is the answer to a membership query. Truncated is set when a
@@ -24,6 +30,9 @@ type Ref struct {
 type Membership struct {
 	Refs      []Ref `json:"refs"`
 	Truncated bool  `json:"truncated,omitempty"`
+	// Skipped names the attributes the server refused to search on, such as
+	// an unindexed memberUid: the groups that list dn only there are missing.
+	Skipped []string `json:"skipped,omitempty"`
 }
 
 const (
@@ -46,7 +55,7 @@ const groupFilter = "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames
 // truncated), and survives membership cycles; memberUid names users, not
 // groups, so only the first level asks for it.
 func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership, error) {
-	e, err := c.rawEntry(ctx, dn, []string{"uid"})
+	e, err := c.rawEntry(ctx, dn, []string{"uid", "isMemberOf", "memberOf"})
 	if err != nil {
 		return Membership{}, err
 	}
@@ -59,21 +68,26 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 			m.Truncated = true // the groups in frontier are not followed
 			break
 		}
-		var next []string
-		for _, member := range frontier {
-			escaped := ldap.EscapeFilter(member)
-			filter := fmt.Sprintf("(member=%s)(uniqueMember=%s)", escaped, escaped)
+		scans := c.scanLevel(ctx, frontier, func(member string) []term {
+			terms := []term{{"member", member}, {"uniqueMember", member}}
 			if depth == 0 {
 				for _, u := range uids {
-					filter += fmt.Sprintf("(memberUid=%s)", ldap.EscapeFilter(u))
+					terms = append(terms, term{"memberUid", u})
 				}
 			}
-			groups, truncated, err := c.allDNs(ctx, "(|"+filter+")", maxRefs)
-			if err != nil {
-				return Membership{}, err
+			return terms
+		})
+		var next []string
+		for i, member := range frontier {
+			sc := scans[i]
+			if sc.err != nil {
+				return Membership{}, sc.err
 			}
-			m.Truncated = m.Truncated || truncated
-			for _, g := range groups {
+			for _, a := range sc.skipped {
+				skip(&m, a)
+			}
+			m.Truncated = m.Truncated || sc.truncated
+			for _, g := range sc.groups {
 				if seen[normDN(g)] {
 					continue
 				}
@@ -95,7 +109,145 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 		}
 		frontier = next
 	}
+	// The groups the server itself lists for the entry: they include groups
+	// a search cannot reach (an ACI, an unindexed attribute, a dynamic
+	// group). ponytail: AD ranges a memberOf over 1500 values; not fetched
+	// here, as AD's member search finds those groups anyway.
+	for _, attr := range []string{"isMemberOf", "memberOf"} {
+		for _, g := range e.GetEqualFoldAttributeValues(attr) {
+			if seen[normDN(g)] {
+				continue
+			}
+			if len(m.Refs) == maxRefs {
+				m.Truncated = true
+				return m, nil
+			}
+			seen[normDN(g)] = true
+			m.Refs = append(m.Refs, Ref{DN: g, Source: attr})
+		}
+	}
 	return m, nil
+}
+
+// term is one attribute=value assertion of a membership scan.
+type term struct{ attr, value string }
+
+// scanParallelism is how many membership scans of one nesting level run at
+// once on the connection. One after another, a member of a thousand groups
+// over a VPN waited minutes for the next level.
+const scanParallelism = 8
+
+// levelScan is what groupsListing found for one group of a level.
+type levelScan struct {
+	groups    []string
+	truncated bool
+	skipped   []string
+	err       error
+}
+
+// scanLevel runs groupsListing for each of frontier, scanParallelism at a
+// time, and returns the results in frontier's order.
+func (c *Conn) scanLevel(ctx context.Context, frontier []string, terms func(string) []term) []levelScan {
+	out := make([]levelScan, len(frontier))
+	sem := make(chan struct{}, scanParallelism)
+	var wg sync.WaitGroup
+	for i, member := range frontier {
+		wg.Go(func() {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			r := &out[i]
+			r.groups, r.truncated, r.skipped, r.err = c.groupsListing(ctx, terms(member))
+		})
+	}
+	wg.Wait()
+	return out
+}
+
+// groupsListing returns the groups under the base DN that match any of
+// terms. It asks once, with one OR filter. Some servers refuse a search
+// that names an unindexed attribute (OpenDJ and 389 DS answer result 50,
+// "unindexed search", without a special privilege; others 53 or 11), and
+// an OR is unindexed as soon as one of its parts is. Then it asks per
+// attribute, keeps what the server answers, and records the attributes it
+// refused in skipped and on c, so later scans leave them out. When every
+// attribute is refused, the refusal is the error.
+func (c *Conn) groupsListing(ctx context.Context, terms []term) (groups []string, truncated bool, skipped []string, err error) {
+	c.mu.Lock()
+	byAttr := map[string][]string{}
+	var attrs []string
+	for _, t := range terms {
+		if c.refused[t.attr] {
+			skipped = appendNew(skipped, t.attr)
+			continue
+		}
+		if byAttr[t.attr] == nil {
+			attrs = append(attrs, t.attr)
+		}
+		byAttr[t.attr] = append(byAttr[t.attr], fmt.Sprintf("(%s=%s)", t.attr, ldap.EscapeFilter(t.value)))
+	}
+	c.mu.Unlock()
+	if len(attrs) == 0 {
+		return nil, false, skipped, nil
+	}
+	var all []string
+	for _, a := range attrs {
+		all = append(all, byAttr[a]...)
+	}
+	groups, truncated, err = c.allDNs(ctx, orFilter(all), maxRefs)
+	if err == nil || !refusesSearch(err) || len(attrs) == 1 {
+		return groups, truncated, skipped, err
+	}
+	firstErr := err
+	groups, truncated = nil, false
+	answered := 0
+	for _, a := range attrs {
+		g, t, err := c.allDNs(ctx, orFilter(byAttr[a]), maxRefs)
+		switch {
+		case err == nil:
+			answered++
+			groups, truncated = append(groups, g...), truncated || t
+		case refusesSearch(err):
+			c.mu.Lock()
+			if c.refused == nil {
+				c.refused = map[string]bool{}
+			}
+			c.refused[a] = true
+			c.mu.Unlock()
+			skipped = appendNew(skipped, a)
+		default:
+			return nil, false, nil, err
+		}
+	}
+	if answered == 0 {
+		return nil, false, nil, firstErr
+	}
+	return groups, truncated, skipped, nil
+}
+
+// orFilter joins filters into one OR, or returns the only one.
+func orFilter(fs []string) string {
+	if len(fs) == 1 {
+		return fs[0]
+	}
+	return "(|" + strings.Join(fs, "") + ")"
+}
+
+// skip adds attr to m.Skipped once.
+func skip(m *Membership, attr string) { m.Skipped = appendNew(m.Skipped, attr) }
+
+// appendNew appends s to list unless it is there already.
+func appendNew(list []string, s string) []string {
+	if slices.Contains(list, s) {
+		return list
+	}
+	return append(list, s)
+}
+
+// refusesSearch reports whether err is a server declining a search as such
+// (insufficient access, unwilling to perform, admin limit), as it does for
+// one it would have to run without an index.
+func refusesSearch(err error) bool {
+	return ldap.IsErrorAnyOf(err, ldap.LDAPResultInsufficientAccessRights, ldap.LDAPResultUnwillingToPerform, ldap.LDAPResultAdminLimitExceeded)
 }
 
 // Members returns the member and uniqueMember values of group dn. With

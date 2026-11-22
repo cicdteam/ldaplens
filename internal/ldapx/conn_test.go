@@ -28,6 +28,7 @@ import (
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/go-ldap/ldap/v3"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/cicdteam/ldaplens/internal/profile"
 	"github.com/cicdteam/ldaplens/internal/schema"
@@ -1392,5 +1393,156 @@ func TestInfoBindDN(t *testing.T) {
 	t.Cleanup(func() { _ = c.Close() })
 	if got := c.Info().BindDN; got != dn {
 		t.Errorf("Dial(%s).Info().BindDN = %q, want %q", dn, got, dn)
+	}
+}
+
+// TestMemberOfUnindexedAttribute checks MemberOf against a server that, like
+// OpenDJ or 389 DS without the right privilege, refuses a search on an
+// unindexed attribute (memberUid here) with result 50: the groups found by
+// member and uniqueMember still come back, memberUid is reported as
+// skipped, the connection does not ask for it again, and a server that
+// refuses every attribute still fails with its own error.
+func TestMemberOfUnindexedAttribute(t *testing.T) {
+	var memberUidAsked atomic.Int32
+	serve := func(refuseAll bool) func(int32, net.Conn) {
+		return func(_ int32, conn net.Conn) {
+			for {
+				s, err := readSearch(conn)
+				if err != nil {
+					return
+				}
+				code := int64(ldap.LDAPResultSuccess)
+				switch {
+				case s.base != "": // the entry read for its uid values
+					err = writeEntry(conn, s.id, s.base, &ldap.EntryAttribute{Name: "uid", Values: []string{"a"}})
+				case strings.Contains(s.filter, "memberUid"):
+					memberUidAsked.Add(1)
+					code = ldap.LDAPResultInsufficientAccessRights
+				case refuseAll:
+					code = ldap.LDAPResultInsufficientAccessRights
+				default: // one filter or an OR of them
+					if strings.Contains(s.filter, "(member=uid=a)") {
+						err = writeEntry(conn, s.id, "cn=g1")
+					}
+					if err == nil && strings.Contains(s.filter, "(uniqueMember=uid=a)") {
+						err = writeEntry(conn, s.id, "cn=g2")
+					}
+				}
+				if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, code) != nil {
+					return
+				}
+			}
+		}
+	}
+
+	url, _ := fakeServer(t, serve(false))
+	c := fakeConn(t, url)
+	for i := range 2 {
+		m, err := c.MemberOf(context.Background(), "uid=a", false)
+		if err != nil {
+			t.Fatalf("MemberOf() call %d error = %v", i+1, err)
+		}
+		want := Membership{Refs: []Ref{{DN: "cn=g1"}, {DN: "cn=g2"}}, Skipped: []string{"memberUid"}}
+		if diff := cmp.Diff(want, m); diff != "" {
+			t.Errorf("MemberOf() call %d mismatch (-want +got):\n%s", i+1, diff)
+		}
+	}
+	// The first call asks for memberUid in the combined filter, then alone;
+	// the second call leaves it out.
+	if got := memberUidAsked.Load(); got != 2 {
+		t.Errorf("searches naming memberUid = %d, want 2", got)
+	}
+
+	url, _ = fakeServer(t, serve(true))
+	_, err := fakeConn(t, url).MemberOf(context.Background(), "uid=a", false)
+	if !ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights) {
+		t.Errorf("MemberOf() with every attribute refused error = %v, want result 50", err)
+	}
+}
+
+// TestMemberOfServerAttribute checks that MemberOf adds the groups the
+// server lists in the entry's isMemberOf or memberOf (OpenDJ, 389 DS, AD,
+// OpenLDAP's memberof overlay) that its searches did not find, such as
+// groups the user may not search, marked with the attribute they came from,
+// once each, in direct and nested mode alike.
+func TestMemberOfServerAttribute(t *testing.T) {
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			switch {
+			case s.base != "": // the entry read
+				err = writeEntry(conn, s.id, s.base,
+					&ldap.EntryAttribute{Name: "uid", Values: []string{"a"}},
+					&ldap.EntryAttribute{Name: "isMemberOf", Values: []string{"CN=G1", "cn=hidden,ou=x"}},
+					&ldap.EntryAttribute{Name: "memberOf", Values: []string{"cn=hidden,ou=x", "cn=other"}})
+			case strings.Contains(s.filter, "uid=a"): // groups listing the entry
+				err = writeEntry(conn, s.id, "cn=g1")
+			}
+			if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess) != nil {
+				return
+			}
+		}
+	})
+	c := fakeConn(t, url)
+	want := Membership{Refs: []Ref{
+		{DN: "cn=g1"},
+		{DN: "cn=hidden,ou=x", Source: "isMemberOf"},
+		{DN: "cn=other", Source: "memberOf"},
+	}}
+	for _, nested := range []bool{false, true} {
+		m, err := c.MemberOf(context.Background(), "uid=a", nested)
+		if err != nil {
+			t.Fatalf("MemberOf(nested %v) error = %v", nested, err)
+		}
+		if diff := cmp.Diff(want, m); diff != "" {
+			t.Errorf("MemberOf(nested %v) mismatch (-want +got):\n%s", nested, diff)
+		}
+	}
+}
+
+// TestMemberOfNestedScansInParallel checks that nested Member of scans the
+// groups of one level side by side: a member of 40 groups, each search
+// answered after 50 ms by a server that, like a real one, works on several
+// requests of a connection at once, takes far less than 40 × 50 ms, and the
+// result keeps its order.
+func TestMemberOfNestedScansInParallel(t *testing.T) {
+	const groups, delay = 40, 50 * time.Millisecond
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		var mu sync.Mutex // one response at a time on the wire
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			go func() {
+				time.Sleep(delay)
+				mu.Lock()
+				defer mu.Unlock()
+				switch {
+				case s.base != "":
+					_ = writeEntry(conn, s.id, s.base)
+				case strings.Contains(s.filter, "uid=a"):
+					for i := range groups {
+						_ = writeEntry(conn, s.id, fmt.Sprintf("cn=g%02d", i))
+					}
+				}
+				_ = writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess)
+			}()
+		}
+	})
+	start := time.Now()
+	m, err := fakeConn(t, url).MemberOf(context.Background(), "uid=a", true)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("MemberOf(nested) error = %v", err)
+	}
+	if len(m.Refs) != groups || m.Refs[0].DN != "cn=g00" || m.Refs[groups-1].DN != fmt.Sprintf("cn=g%02d", groups-1) {
+		t.Errorf("MemberOf(nested) = %d refs, first %v; want %d in order", len(m.Refs), m.Refs[:min(1, len(m.Refs))], groups)
+	}
+	if sequential := time.Duration(groups) * delay; elapsed > sequential/2 {
+		t.Errorf("MemberOf(nested) took %v; one search after another would take %v", elapsed, sequential)
 	}
 }

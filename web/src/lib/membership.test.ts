@@ -47,10 +47,26 @@ describe('refs', () => {
   ]
 
   it('sorts by the first RDN naturally', () => {
-    expect(sortRefs(refs).map((r) => r.dn)).toEqual([
+    const direct = refs.map(({ dn }) => ({ dn }))
+    expect(sortRefs(direct).map((r) => r.dn)).toEqual([
       'cn=admins,ou=g,dc=org',
       'cn=User2,ou=p,dc=org',
       'cn=user10,ou=p,dc=org',
+    ])
+  })
+
+  it('puts direct groups first, then nested ones, then those only the server lists', () => {
+    const mixed = [
+      { dn: 'cn=access,ou=g,dc=org', source: 'isMemberOf' },
+      { dn: 'cn=zeta,ou=g,dc=org' },
+      { dn: 'cn=Admins,ou=g,dc=org', source: 'isMemberOf' },
+      { dn: 'cn=beta,ou=g,dc=org', via: 'cn=zeta,ou=g,dc=org' },
+    ]
+    expect(sortRefs(mixed).map((r) => r.dn)).toEqual([
+      'cn=zeta,ou=g,dc=org', // direct
+      'cn=beta,ou=g,dc=org', // nested
+      'cn=access,ou=g,dc=org', // the server's list
+      'cn=Admins,ou=g,dc=org',
     ])
   })
 
@@ -281,6 +297,9 @@ describe('hints and filters', () => {
       `Inherited through cn=sub,${OU}`,
     )
     expect(inheritedHint({ dn: `uid=a,${OU}` })).toBe('')
+    expect(inheritedHint({ dn: `cn=g,${OU}`, source: 'isMemberOf' })).toBe(
+      "Listed in the entry's isMemberOf: open the group to change it",
+    )
   })
   it('finds groups by cn, escaped', () => {
     expect(groupFilter(' a*(b) ')).toBe(
