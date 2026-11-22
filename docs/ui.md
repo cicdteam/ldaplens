@@ -93,9 +93,11 @@ values, shows what arrived, marked "The search stopped early".
 Some servers (OpenDJ, 389 DS) refuse a search they cannot answer from an index
 unless the user holds a special privilege, and an OR filter, such as the
 header's quick search, is refused as soon as one part is unindexed. ldaplens
-then runs each part of the OR alone, lists what the server answers, and names
-the parts it refused (on OpenDJ, usually `displayName` and `sAMAccountName`):
-entries that match only those are missing.
+then runs each part of the OR alone, lists what the server answers, and says
+"Not searched by" and the attributes of the parts it refused (on OpenDJ,
+usually `displayName`): entries that match only those are missing. Attributes
+the server's schema does not define, such as `sAMAccountName` off Active
+Directory, match nothing and are not named.
 
 ### Entry card
 

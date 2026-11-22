@@ -155,7 +155,7 @@ func (c *Conn) Search(ctx context.Context, r SearchRequest) (Page, error) {
 	res, err := c.walk(ctx, req, limit)
 	var skipped []string
 	if refusesSearch(err) {
-		res, skipped, err = c.walkParts(ctx, r, req.Filter, limit, err)
+		res, skipped, err = c.walkParts(ctx, r, req.Filter, limit, s, err)
 	}
 	if err != nil {
 		return Page{}, err
@@ -171,12 +171,13 @@ func (c *Conn) Search(ctx context.Context, r SearchRequest) (Page, error) {
 // server that refused the whole: OpenDJ and 389 DS refuse a search that
 // cannot use an index, and an OR cannot as soon as one part cannot (see
 // groupsListing). It merges the entries of the parts the server answers,
-// in order and without duplicates, and lists in skipped the parts it
-// refused. refused is the error when filter is no OR or every part is
-// refused.
+// in order and without duplicates, and lists in skipped the attributes of
+// the parts it refused (see partName), but for those s does not define:
+// they match nothing, as sAMAccountName off Active Directory. refused is
+// the error when filter is no OR or every part is refused.
 // ponytail: only a top-level OR is split; an OR inside an AND fails as the
 // server answered.
-func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, limit int, refused error) (*result, []string, error) {
+func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, limit int, s *schema.Schema, refused error) (*result, []string, error) {
 	p, err := ldap.CompileFilter(filter)
 	if err != nil || p.Tag != ldap.FilterOr {
 		return nil, nil, refused
@@ -184,6 +185,7 @@ func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, li
 	merged := &result{}
 	seen := map[string]bool{}
 	var skipped []string
+	refusals := 0
 	for _, child := range p.Children {
 		r.Filter, err = ldap.DecompileFilter(child)
 		if err != nil {
@@ -196,7 +198,11 @@ func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, li
 		req.TimeLimit = searchTimeLimit(c.prof.SearchTimeout)
 		res, err := c.walk(ctx, req, limit)
 		if refusesSearch(err) {
-			skipped = append(skipped, r.Filter)
+			refusals++
+			name := partName(child, r.Filter)
+			if _, known := s.AttributeType(name); known || len(s.AttributeTypes) == 0 {
+				skipped = appendNew(skipped, name)
+			}
 			continue
 		}
 		if err != nil {
@@ -217,13 +223,31 @@ func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, li
 			break
 		}
 	}
-	if len(skipped) == len(p.Children) {
+	if refusals == len(p.Children) {
 		return nil, nil, refused
 	}
 	if len(merged.entries) > limit {
 		merged.entries, merged.more = merged.entries[:limit], true
 	}
 	return merged, skipped, nil
+}
+
+// partName is what Page.Skipped calls a refused part p of an OR: its
+// attribute, or the part itself when it is no match on one attribute.
+func partName(p *ber.Packet, filter string) string {
+	switch p.Tag {
+	case ldap.FilterEqualityMatch, ldap.FilterSubstrings, ldap.FilterGreaterOrEqual, ldap.FilterLessOrEqual, ldap.FilterApproxMatch:
+		if len(p.Children) > 0 {
+			if a, ok := p.Children[0].Value.(string); ok {
+				return a
+			}
+		}
+	case ldap.FilterPresent:
+		if a, ok := p.Value.(string); ok {
+			return a
+		}
+	}
+	return filter
 }
 
 // walk runs req and returns at most limit of its entries, with more set

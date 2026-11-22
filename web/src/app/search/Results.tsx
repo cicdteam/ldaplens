@@ -332,10 +332,8 @@ function Listing({ search }: { search: SearchState }) {
         </Banner>
       )}
       {!!q.data?.skipped?.length && (
-        <Banner tone="warn">
-          The server refused to search {q.data.skipped.join(' and ')} (usually because{' '}
-          {q.data.skipped.length === 1 ? 'it is' : 'they are'} not indexed there), so entries that
-          match only {q.data.skipped.length === 1 ? 'that part are' : 'those parts are'} missing.
+        <Banner tone="info">
+          Not searched by {q.data.skipped.join(', ')}: the server refuses unindexed searches.
         </Banner>
       )}
       {!!q.data?.referrals?.length && (

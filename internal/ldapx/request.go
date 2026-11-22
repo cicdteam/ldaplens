@@ -64,8 +64,9 @@ type Page struct {
 	// before that.
 	Truncated bool     `json:"truncated,omitempty"`
 	Referrals []string `json:"referrals,omitempty"`
-	// Skipped lists the parts of an OR filter the server refused to search
-	// on (see Search); entries that match only those are missing.
+	// Skipped names the attributes of the parts of an OR filter the server
+	// refused to search on (see walkParts); entries that match only those
+	// parts are missing.
 	Skipped []string `json:"skipped,omitempty"`
 }
 

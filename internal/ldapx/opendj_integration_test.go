@@ -259,7 +259,9 @@ func testOpenDJSearch(t *testing.T, c *Conn) {
 
 	// The header's quick search: OpenDJ has no sAMAccountName and no index
 	// on displayName, so it refuses the OR, and the parts it answers still
-	// find p3 (uid=p3* is answered from uid's equality index).
+	// find p3 (uid=p3* is answered from uid's equality index). Only
+	// displayName is named: sAMAccountName, not in the schema, matches
+	// nothing anyway.
 	req.Filter = "(|(cn=*p3*)(uid=p3*)(sAMAccountName=p3*)(mail=p3*)(displayName=*p3*))"
 	p, err = c.Search(ctx, req)
 	if err != nil {
@@ -268,7 +270,7 @@ func testOpenDJSearch(t *testing.T, c *Conn) {
 	if len(p.Entries) != 1 || p.Entries[0].DN != "uid=p3,ou=people,dc=example,dc=org" {
 		t.Errorf("Search(%s) = %v, want uid=p3 alone", req.Filter, p.Entries)
 	}
-	if diff := cmp.Diff([]string{"(sAMAccountName=p3*)", "(displayName=*p3*)"}, p.Skipped); diff != "" {
+	if diff := cmp.Diff([]string{"displayName"}, p.Skipped); diff != "" {
 		t.Errorf("Search(%s) skipped (-want +got):\n%s", req.Filter, diff)
 	}
 }

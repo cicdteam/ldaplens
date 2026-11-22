@@ -1600,8 +1600,9 @@ func TestMembersNestedReadsInParallel(t *testing.T) {
 
 // TestSearchSplitsRefusedOr checks that a search whose OR filter the server
 // refuses (OpenDJ answers result 50 when one part is unindexed) runs each
-// part alone, merges their entries without duplicates and names the parts
-// the server refused too.
+// part alone, merges their entries without duplicates and names the
+// attributes of the parts the server refused too, but for those its schema
+// does not define, which match nothing anyway.
 func TestSearchSplitsRefusedOr(t *testing.T) {
 	serve := func(refuse func(filter string) bool) func(int32, net.Conn) {
 		return func(_ int32, conn net.Conn) {
@@ -1626,8 +1627,10 @@ func TestSearchSplitsRefusedOr(t *testing.T) {
 			}
 		}
 	}
-	const filter = "(|(cn=*a*)(uid=a*)(mail=a*))"
-	unindexed := func(f string) bool { return strings.HasPrefix(f, "(|") || f == "(uid=a*)" }
+	const filter = "(|(cn=*a*)(uid=a*)(sAMAccountName=a*)(mail=a*))"
+	unindexed := func(f string) bool {
+		return strings.HasPrefix(f, "(|") || f == "(uid=a*)" || f == "(sAMAccountName=a*)"
+	}
 	dns := func(p Page) []string {
 		var out []string
 		for _, e := range p.Entries {
@@ -1638,6 +1641,9 @@ func TestSearchSplitsRefusedOr(t *testing.T) {
 
 	u, _ := fakeServer(t, serve(unindexed))
 	c := fakeConn(t, u)
+	c.schema = schema.Parse([]string{
+		"( 2.5.4.3 NAME 'cn' )", "( 0.9.2342.19200300.100.1.1 NAME 'uid' )", "( 0.9.2342.19200300.100.1.3 NAME 'mail' )",
+	}, nil, nil)
 	tests := []struct {
 		limit int
 		want  []string
@@ -1654,7 +1660,7 @@ func TestSearchSplitsRefusedOr(t *testing.T) {
 		if diff := cmp.Diff(tc.want, dns(p)); diff != "" || p.More != tc.more {
 			t.Errorf("Search(%s, limit %d) more %v, want %v; entries (-want +got):\n%s", filter, tc.limit, p.More, tc.more, diff)
 		}
-		if diff := cmp.Diff([]string{"(uid=a*)"}, p.Skipped); diff != "" {
+		if diff := cmp.Diff([]string{"uid"}, p.Skipped); diff != "" {
 			t.Errorf("Search(%s, limit %d) skipped (-want +got):\n%s", filter, tc.limit, diff)
 		}
 	}
@@ -1664,5 +1670,24 @@ func TestSearchSplitsRefusedOr(t *testing.T) {
 	c = fakeConn(t, u)
 	if _, err := c.Search(context.Background(), SearchRequest{BaseDN: "dc=x", Filter: filter}); !ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights) {
 		t.Errorf("Search(every part refused) error = %v, want insufficientAccessRights", err)
+	}
+}
+
+func TestPartName(t *testing.T) {
+	for filter, want := range map[string]string{
+		"(cn=*a*)":       "cn",
+		"(uid=a)":        "uid",
+		"(mail=*)":       "mail",
+		"(age>=3)":       "age",
+		"(&(a=1)(b=2))":  "(&(a=1)(b=2))",
+		"(cn:dn:=admin)": "(cn:dn:=admin)",
+	} {
+		p, err := ldap.CompileFilter(filter)
+		if err != nil {
+			t.Fatalf("CompileFilter(%s) error = %v", filter, err)
+		}
+		if got := partName(p, filter); got != want {
+			t.Errorf("partName(%s) = %q, want %q", filter, got, want)
+		}
 	}
 }

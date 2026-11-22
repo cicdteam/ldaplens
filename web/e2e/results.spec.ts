@@ -85,8 +85,8 @@ test('the rows stay virtual; End shows the last row below the header', async ({ 
 
 test('a search the server answered only in part says which parts it refused', async ({ page }) => {
   // OpenDJ and 389 DS refuse an OR with an unindexed part with result 50; the backend then
-  // searches part by part and reports the parts refused (Go tests cover that). Here the
-  // answer is made to carry them.
+  // searches part by part and names the attributes of the parts refused (Go tests cover
+  // that). Here the answer is made to carry them.
   await page.route(
     (url) => url.pathname.includes('/api/') && url.pathname.endsWith('/search'),
     async (route) => {
@@ -94,7 +94,7 @@ test('a search the server answered only in part says which parts it refused', as
       const body = await res.json()
       await route.fulfill({
         response: res,
-        json: { ...body, skipped: ['(uid=user00*)', '(displayName=*user00*)'] },
+        json: { ...body, skipped: ['displayName', 'description'] },
       })
     },
   )
@@ -102,7 +102,7 @@ test('a search the server answered only in part says which parts it refused', as
   await page.goto('c/demo/search?filter=(uid=user001)')
   await expect(
     page.getByText(
-      'The server refused to search (uid=user00*) and (displayName=*user00*) (usually because they are not indexed there), so entries that match only those parts are missing.',
+      'Not searched by displayName, description: the server refuses unindexed searches.',
     ),
   ).toBeVisible()
   await expect(results(page).getByRole('row').nth(1)).toBeVisible()
