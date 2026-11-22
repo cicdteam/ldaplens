@@ -26,6 +26,10 @@ lasts, and others may be editing it at the same time. Passwords and binary
 values such as photos and certificates are read-only there, so the demo stays
 a demo.
 
+The demo is served through Cloudflare, and Russian internet providers
+throttle connections to Cloudflare, so from Russia it does not open without a
+VPN.
+
 ## Quick start
 
 On your machine, in local mode: download the binary and run it.
