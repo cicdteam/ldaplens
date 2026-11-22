@@ -1502,3 +1502,47 @@ func TestMemberOfServerAttribute(t *testing.T) {
 		}
 	}
 }
+
+// TestMemberOfNestedScansInParallel checks that nested Member of scans the
+// groups of one level side by side: a member of 40 groups, each search
+// answered after 50 ms by a server that, like a real one, works on several
+// requests of a connection at once, takes far less than 40 × 50 ms, and the
+// result keeps its order.
+func TestMemberOfNestedScansInParallel(t *testing.T) {
+	const groups, delay = 40, 50 * time.Millisecond
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		var mu sync.Mutex // one response at a time on the wire
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			go func() {
+				time.Sleep(delay)
+				mu.Lock()
+				defer mu.Unlock()
+				switch {
+				case s.base != "":
+					_ = writeEntry(conn, s.id, s.base)
+				case strings.Contains(s.filter, "uid=a"):
+					for i := range groups {
+						_ = writeEntry(conn, s.id, fmt.Sprintf("cn=g%02d", i))
+					}
+				}
+				_ = writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess)
+			}()
+		}
+	})
+	start := time.Now()
+	m, err := fakeConn(t, url).MemberOf(context.Background(), "uid=a", true)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("MemberOf(nested) error = %v", err)
+	}
+	if len(m.Refs) != groups || m.Refs[0].DN != "cn=g00" || m.Refs[groups-1].DN != fmt.Sprintf("cn=g%02d", groups-1) {
+		t.Errorf("MemberOf(nested) = %d refs, first %v; want %d in order", len(m.Refs), m.Refs[:min(1, len(m.Refs))], groups)
+	}
+	if sequential := time.Duration(groups) * delay; elapsed > sequential/2 {
+		t.Errorf("MemberOf(nested) took %v; one search after another would take %v", elapsed, sequential)
+	}
+}

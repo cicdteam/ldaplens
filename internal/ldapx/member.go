@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -67,20 +68,26 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 			m.Truncated = true // the groups in frontier are not followed
 			break
 		}
-		var next []string
-		for _, member := range frontier {
+		scans := c.scanLevel(ctx, frontier, func(member string) []term {
 			terms := []term{{"member", member}, {"uniqueMember", member}}
 			if depth == 0 {
 				for _, u := range uids {
 					terms = append(terms, term{"memberUid", u})
 				}
 			}
-			groups, truncated, err := c.groupsListing(ctx, terms, &m)
-			if err != nil {
-				return Membership{}, err
+			return terms
+		})
+		var next []string
+		for i, member := range frontier {
+			sc := scans[i]
+			if sc.err != nil {
+				return Membership{}, sc.err
 			}
-			m.Truncated = m.Truncated || truncated
-			for _, g := range groups {
+			for _, a := range sc.skipped {
+				skip(&m, a)
+			}
+			m.Truncated = m.Truncated || sc.truncated
+			for _, g := range sc.groups {
 				if seen[normDN(g)] {
 					continue
 				}
@@ -125,21 +132,52 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 // term is one attribute=value assertion of a membership scan.
 type term struct{ attr, value string }
 
+// scanParallelism is how many membership scans of one nesting level run at
+// once on the connection. One after another, a member of a thousand groups
+// over a VPN waited minutes for the next level.
+const scanParallelism = 8
+
+// levelScan is what groupsListing found for one group of a level.
+type levelScan struct {
+	groups    []string
+	truncated bool
+	skipped   []string
+	err       error
+}
+
+// scanLevel runs groupsListing for each of frontier, scanParallelism at a
+// time, and returns the results in frontier's order.
+func (c *Conn) scanLevel(ctx context.Context, frontier []string, terms func(string) []term) []levelScan {
+	out := make([]levelScan, len(frontier))
+	sem := make(chan struct{}, scanParallelism)
+	var wg sync.WaitGroup
+	for i, member := range frontier {
+		wg.Go(func() {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			r := &out[i]
+			r.groups, r.truncated, r.skipped, r.err = c.groupsListing(ctx, terms(member))
+		})
+	}
+	wg.Wait()
+	return out
+}
+
 // groupsListing returns the groups under the base DN that match any of
 // terms. It asks once, with one OR filter. Some servers refuse a search
 // that names an unindexed attribute (OpenDJ and 389 DS answer result 50,
 // "unindexed search", without a special privilege; others 53 or 11), and
 // an OR is unindexed as soon as one of its parts is. Then it asks per
 // attribute, keeps what the server answers, and records the attributes it
-// refused in m.Skipped and on c, so later scans leave them out. When every
+// refused in skipped and on c, so later scans leave them out. When every
 // attribute is refused, the refusal is the error.
-func (c *Conn) groupsListing(ctx context.Context, terms []term, m *Membership) ([]string, bool, error) {
+func (c *Conn) groupsListing(ctx context.Context, terms []term) (groups []string, truncated bool, skipped []string, err error) {
 	c.mu.Lock()
 	byAttr := map[string][]string{}
 	var attrs []string
 	for _, t := range terms {
 		if c.refused[t.attr] {
-			skip(m, t.attr)
+			skipped = appendNew(skipped, t.attr)
 			continue
 		}
 		if byAttr[t.attr] == nil {
@@ -149,15 +187,15 @@ func (c *Conn) groupsListing(ctx context.Context, terms []term, m *Membership) (
 	}
 	c.mu.Unlock()
 	if len(attrs) == 0 {
-		return nil, false, nil
+		return nil, false, skipped, nil
 	}
 	var all []string
 	for _, a := range attrs {
 		all = append(all, byAttr[a]...)
 	}
-	groups, truncated, err := c.allDNs(ctx, orFilter(all), maxRefs)
+	groups, truncated, err = c.allDNs(ctx, orFilter(all), maxRefs)
 	if err == nil || !refusesSearch(err) || len(attrs) == 1 {
-		return groups, truncated, err
+		return groups, truncated, skipped, err
 	}
 	firstErr := err
 	groups, truncated = nil, false
@@ -175,15 +213,15 @@ func (c *Conn) groupsListing(ctx context.Context, terms []term, m *Membership) (
 			}
 			c.refused[a] = true
 			c.mu.Unlock()
-			skip(m, a)
+			skipped = appendNew(skipped, a)
 		default:
-			return nil, false, err
+			return nil, false, nil, err
 		}
 	}
 	if answered == 0 {
-		return nil, false, firstErr
+		return nil, false, nil, firstErr
 	}
-	return groups, truncated, nil
+	return groups, truncated, skipped, nil
 }
 
 // orFilter joins filters into one OR, or returns the only one.
@@ -195,10 +233,14 @@ func orFilter(fs []string) string {
 }
 
 // skip adds attr to m.Skipped once.
-func skip(m *Membership, attr string) {
-	if !slices.Contains(m.Skipped, attr) {
-		m.Skipped = append(m.Skipped, attr)
+func skip(m *Membership, attr string) { m.Skipped = appendNew(m.Skipped, attr) }
+
+// appendNew appends s to list unless it is there already.
+func appendNew(list []string, s string) []string {
+	if slices.Contains(list, s) {
+		return list
 	}
+	return append(list, s)
 }
 
 // refusesSearch reports whether err is a server declining a search as such
