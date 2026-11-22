@@ -1,0 +1,20 @@
+name: Feature request
+description: Something you need that ldaplens does not do yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you are trying to do
+      description: The task, not the solution. What do you do today instead?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you imagine it
+  - type: input
+    id: directory
+    attributes:
+      label: Directory server
+      placeholder: OpenLDAP, Active Directory, ...

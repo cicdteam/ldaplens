@@ -1,0 +1,56 @@
+name: Bug
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Error messages and screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect to ...
+        2. Open ...
+        3. ...
+  - type: dropdown
+    id: directory
+    attributes:
+      label: Directory server
+      options:
+        - OpenLDAP
+        - Active Directory (Windows Server)
+        - Samba AD
+        - FreeIPA / 389 Directory Server
+        - LLDAP
+        - Other (say which below)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run ldaplens
+      options:
+        - Homebrew
+        - Release binary
+        - Docker
+        - Helm chart
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ldaplens version
+      description: The output of `ldaplens --version`, or the image tag.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Mode (local or server), browser, the log lines around the error. Leave out passwords, tokens and real personal data.
