@@ -82,6 +82,9 @@ type Options struct {
 	NoticeColor string
 	// Server is set in server mode, which keeps no data on disk.
 	Server bool
+	// Version is ldaplens's version, which the UI shows in its status bar;
+	// empty shows none.
+	Version string
 	// UI is the built web UI; nil serves a "not built" page.
 	UI     fs.FS
 	Logger *slog.Logger // nil discards logs
@@ -105,6 +108,7 @@ func New(opts Options) http.Handler {
 		serverMode:     opts.Server,
 		notice:         opts.Notice,
 		noticeColor:    opts.NoticeColor,
+		version:        opts.Version,
 		attempts:       newAttemptLimiter(5, time.Minute, 10000, time.Now),
 		clients:        newAttemptLimiter(20, time.Minute, 10000, time.Now),
 	}

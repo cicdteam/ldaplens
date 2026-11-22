@@ -8,6 +8,8 @@ export type Scope = 'base' | 'one' | 'sub'
 /** GET /api/server: server mode serves only the profiles in its config. */
 export interface ServerInfo {
   mode: 'local' | 'server'
+  /** ldaplens's version, as --version prints it. */
+  version?: string
   /** The operator's plain-text message (--notice); absent when none. */
   notice?: string
   /** The notice strip's background (--notice-color), #rgb or #rrggbb; absent when none. */

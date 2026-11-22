@@ -152,8 +152,9 @@ nested, so these rows are not removed from here; open the group instead.
 
 While changes are staged, a bar above the status bar shows how many, for
 which profile and server, with Discard and Review. The status bar shows the
-server address, whether the connection is encrypted, the server type and the
-keys that act in the focused pane.
+server address, whether the connection is encrypted, the server type, the
+keys that act in the focused pane and, at the right end, the ldaplens version
+(as `ldaplens --version` prints it).
 
 ### Shortcuts
 
