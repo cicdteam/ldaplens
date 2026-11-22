@@ -5,9 +5,10 @@ The binary, Docker, running ldaplens for a team, reverse proxies, Kubernetes and
 ## Run the binary
 
 Each release has static binaries for Linux (amd64, arm64) and macOS (Apple
-silicon), as `ldaplens_Linux_x86_64.tar.gz`, `ldaplens_Linux_aarch64.tar.gz`
-and `ldaplens_Darwin_arm64.tar.gz` (named as `uname -s` and `uname -m`
-print), each with `LICENSE` and `README.md`,
+silicon, Intel), as `ldaplens_Linux_x86_64.tar.gz`,
+`ldaplens_Linux_aarch64.tar.gz`, `ldaplens_Darwin_arm64.tar.gz` and
+`ldaplens_Darwin_x86_64.tar.gz` (named as `uname -s` and `uname -m` print),
+each with `LICENSE` and `README.md`,
 and their SHA-256 sums in `ldaplens_checksums.txt`. The names carry no
 version, so `releases/latest/download/<name>` always gives the newest
 release, and `releases/download/v<version>/<name>` a given one:
@@ -17,8 +18,7 @@ curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaple
 ./ldaplens
 ```
 
-There is no build for Intel Macs or Windows: there `curl` fails with 404;
-use the [Docker image](#run-with-docker).
+There is no build for Windows: there use the [Docker image](#run-with-docker).
 
 With no arguments it runs `local`, on `127.0.0.1:8080` (`--listen` changes
 it), and keeps the saved connections and the token in the user config

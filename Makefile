@@ -71,7 +71,7 @@ build: web ## Build bin/ldaplens with the embedded UI
 # Release archives named as uname -s and uname -m print, so the quick start
 # needs no mapping, and without the version, so
 # releases/latest/download/<name> stays one URL. GOOS/GOARCH:uname.
-DIST_PLATFORMS := linux/amd64:Linux_x86_64 linux/arm64:Linux_aarch64 darwin/arm64:Darwin_arm64
+DIST_PLATFORMS := linux/amd64:Linux_x86_64 linux/arm64:Linux_aarch64 darwin/arm64:Darwin_arm64 darwin/amd64:Darwin_x86_64
 dist: web ## Build the release archives and checksums into dist/
 	rm -rf dist && mkdir -p dist
 	set -e; for p in $(DIST_PLATFORMS); do \
