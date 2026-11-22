@@ -331,6 +331,13 @@ function Listing({ search }: { search: SearchState }) {
           The search stopped early (a size, time or response limit). Showing what arrived.
         </Banner>
       )}
+      {!!q.data?.skipped?.length && (
+        <Banner tone="warn">
+          The server refused to search {q.data.skipped.join(' and ')} (usually because{' '}
+          {q.data.skipped.length === 1 ? 'it is' : 'they are'} not indexed there), so entries that
+          match only {q.data.skipped.length === 1 ? 'that part are' : 'those parts are'} missing.
+        </Banner>
+      )}
       {!!q.data?.referrals?.length && (
         <Banner tone="info">
           Referrals (not followed):{' '}

@@ -153,14 +153,77 @@ func (c *Conn) Search(ctx context.Context, r SearchRequest) (Page, error) {
 	}
 	req.TimeLimit = searchTimeLimit(c.prof.SearchTimeout)
 	res, err := c.walk(ctx, req, limit)
+	var skipped []string
+	if refusesSearch(err) {
+		res, skipped, err = c.walkParts(ctx, r, req.Filter, limit, err)
+	}
 	if err != nil {
 		return Page{}, err
 	}
-	page := Page{Entries: make([]Entry, 0, len(res.entries)), More: res.more, Truncated: res.truncated, Referrals: res.referrals}
+	page := Page{Entries: make([]Entry, 0, len(res.entries)), More: res.more, Truncated: res.truncated, Referrals: res.referrals, Skipped: skipped}
 	for _, e := range res.entries {
 		page.Entries = append(page.Entries, convertEntry(e, s, c.info.ActiveDirectory))
 	}
 	return page, nil
+}
+
+// walkParts runs each part of an OR filter as a search of its own, for a
+// server that refused the whole: OpenDJ and 389 DS refuse a search that
+// cannot use an index, and an OR cannot as soon as one part cannot (see
+// groupsListing). It merges the entries of the parts the server answers,
+// in order and without duplicates, and lists in skipped the parts it
+// refused. refused is the error when filter is no OR or every part is
+// refused.
+// ponytail: only a top-level OR is split; an OR inside an AND fails as the
+// server answered.
+func (c *Conn) walkParts(ctx context.Context, r SearchRequest, filter string, limit int, refused error) (*result, []string, error) {
+	p, err := ldap.CompileFilter(filter)
+	if err != nil || p.Tag != ldap.FilterOr {
+		return nil, nil, refused
+	}
+	merged := &result{}
+	seen := map[string]bool{}
+	var skipped []string
+	for _, child := range p.Children {
+		r.Filter, err = ldap.DecompileFilter(child)
+		if err != nil {
+			return nil, nil, refused
+		}
+		req, _, err := buildRequest(r, c.info.Paging)
+		if err != nil {
+			return nil, nil, err
+		}
+		req.TimeLimit = searchTimeLimit(c.prof.SearchTimeout)
+		res, err := c.walk(ctx, req, limit)
+		if refusesSearch(err) {
+			skipped = append(skipped, r.Filter)
+			continue
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, e := range res.entries {
+			if !seen[normDN(e.DN)] {
+				seen[normDN(e.DN)] = true
+				merged.entries = append(merged.entries, e)
+			}
+		}
+		merged.referrals = append(merged.referrals, res.referrals...)
+		merged.more = merged.more || res.more
+		merged.truncated = merged.truncated || res.truncated
+		// The parts share maxResponseBytes like the pages of one walk.
+		if merged.size += res.size; merged.size >= maxResponseBytes {
+			merged.truncated = true
+			break
+		}
+	}
+	if len(skipped) == len(p.Children) {
+		return nil, nil, refused
+	}
+	if len(merged.entries) > limit {
+		merged.entries, merged.more = merged.entries[:limit], true
+	}
+	return merged, skipped, nil
 }
 
 // walk runs req and returns at most limit of its entries, with more set

@@ -109,6 +109,8 @@ export interface Page {
   more?: boolean
   truncated?: boolean
   referrals?: string[]
+  /** Parts of an OR filter the server refused to search (such as an unindexed uid=x*). */
+  skipped?: string[]
 }
 
 export interface SearchRequest {

@@ -1597,3 +1597,72 @@ func TestMembersNestedReadsInParallel(t *testing.T) {
 		t.Errorf("Members(nested) took %v; one read after another would take %v", elapsed, sequential)
 	}
 }
+
+// TestSearchSplitsRefusedOr checks that a search whose OR filter the server
+// refuses (OpenDJ answers result 50 when one part is unindexed) runs each
+// part alone, merges their entries without duplicates and names the parts
+// the server refused too.
+func TestSearchSplitsRefusedOr(t *testing.T) {
+	serve := func(refuse func(filter string) bool) func(int32, net.Conn) {
+		return func(_ int32, conn net.Conn) {
+			for {
+				s, err := readSearch(conn)
+				if err != nil {
+					return
+				}
+				code := int64(ldap.LDAPResultSuccess)
+				switch {
+				case s.base != "dc=x": // the schema read
+				case refuse(s.filter):
+					code = ldap.LDAPResultInsufficientAccessRights
+				case s.filter == "(cn=*a*)":
+					err = errors.Join(writeEntry(conn, s.id, "cn=x"), writeEntry(conn, s.id, "cn=y"))
+				case s.filter == "(mail=a*)":
+					err = errors.Join(writeEntry(conn, s.id, "cn=y"), writeEntry(conn, s.id, "cn=z"))
+				}
+				if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, code) != nil {
+					return
+				}
+			}
+		}
+	}
+	const filter = "(|(cn=*a*)(uid=a*)(mail=a*))"
+	unindexed := func(f string) bool { return strings.HasPrefix(f, "(|") || f == "(uid=a*)" }
+	dns := func(p Page) []string {
+		var out []string
+		for _, e := range p.Entries {
+			out = append(out, e.DN)
+		}
+		return out
+	}
+
+	u, _ := fakeServer(t, serve(unindexed))
+	c := fakeConn(t, u)
+	tests := []struct {
+		limit int
+		want  []string
+		more  bool
+	}{
+		{limit: 100, want: []string{"cn=x", "cn=y", "cn=z"}},
+		{limit: 2, want: []string{"cn=x", "cn=y"}, more: true},
+	}
+	for _, tc := range tests {
+		p, err := c.Search(context.Background(), SearchRequest{BaseDN: "dc=x", Filter: filter, SizeLimit: tc.limit})
+		if err != nil {
+			t.Fatalf("Search(%s, limit %d) error = %v", filter, tc.limit, err)
+		}
+		if diff := cmp.Diff(tc.want, dns(p)); diff != "" || p.More != tc.more {
+			t.Errorf("Search(%s, limit %d) more %v, want %v; entries (-want +got):\n%s", filter, tc.limit, p.More, tc.more, diff)
+		}
+		if diff := cmp.Diff([]string{"(uid=a*)"}, p.Skipped); diff != "" {
+			t.Errorf("Search(%s, limit %d) skipped (-want +got):\n%s", filter, tc.limit, diff)
+		}
+	}
+
+	// Every part refused: the refusal is the error.
+	u, _ = fakeServer(t, serve(func(string) bool { return true }))
+	c = fakeConn(t, u)
+	if _, err := c.Search(context.Background(), SearchRequest{BaseDN: "dc=x", Filter: filter}); !ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights) {
+		t.Errorf("Search(every part refused) error = %v, want insufficientAccessRights", err)
+	}
+}

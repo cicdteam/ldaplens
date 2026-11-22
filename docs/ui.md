@@ -90,6 +90,13 @@ then 5000. Past 5000, narrow the filter or the base. A search the server cut
 with its own size or time limit, or one past ldaplens's cap of 64 MiB of
 values, shows what arrived, marked "The search stopped early".
 
+Some servers (OpenDJ, 389 DS) refuse a search they cannot answer from an index
+unless the user holds a special privilege, and an OR filter, such as the
+header's quick search, is refused as soon as one part is unindexed. ldaplens
+then runs each part of the OR alone, lists what the server answers, and names
+the parts it refused (on OpenDJ, usually `displayName` and `sAMAccountName`):
+entries that match only those are missing.
+
 ### Entry card
 
 The header shows the entry's name and kind, its DN as breadcrumbs with a
