@@ -201,6 +201,8 @@ know at its next save.
 | `--trusted-proxies` | `LDAPLENS_TRUSTED_PROXIES` | both | none; comma-separated CIDRs or IPs of reverse proxies whose `X-Forwarded-For` is trusted for the client address (see [Behind a reverse proxy](deployment.md#behind-a-reverse-proxy)) |
 | `--notice` | `LDAPLENS_NOTICE` | both | none; a plain-text message shown above the header on every page once the access token is accepted (markup shows as typed, a newline breaks the line), trimmed, at most 300 characters (a longer one is a startup error) |
 | `--notice-color` | `LDAPLENS_NOTICE_COLOR` | both | none; the notice strip's background, `#rgb` or `#rrggbb` (anything else is a startup error), with black or white text, whichever reads better |
+| `--log-format` | `LDAPLENS_LOG_FORMAT` | both | `auto`: `console` when stdout is a terminal, else `text` (see [Logs](operations.md#logs-and-accountability)) |
+| `--no-browser` | `LDAPLENS_NO_BROWSER` | local | `false`; in the console format, local mode opens its login link in the browser (`open` on macOS, `xdg-open` on a Linux desktop, not over SSH) |
 | `--version` | | both | prints `ldaplens <version>` and exits |
 
 A flag beats its variable, and an empty variable counts as unset. A variable

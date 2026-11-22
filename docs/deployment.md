@@ -23,8 +23,10 @@ use the [Docker image](#run-with-docker).
 With no arguments it runs `local`, on `127.0.0.1:8080` (`--listen` changes
 it), and keeps the saved connections and the token in the user config
 directory (`~/.config/ldaplens` on Linux, `~/Library/Application
-Support/ldaplens` on macOS; `--data-dir` changes it). Open the login link it
-prints. `./ldaplens server --config connections.yaml` runs server mode.
+Support/ldaplens` on macOS; `--data-dir` changes it). On a desktop it opens
+its login link in the browser; over SSH, or with `--no-browser`, it prints
+the link to open. The link carries the token, which is in the command line
+of `open` or `xdg-open` while that starts the browser. `./ldaplens server --config connections.yaml` runs server mode.
 
 The macOS binary is not signed by Apple. `curl` leaves it runnable; one
 downloaded with a browser is held in quarantine, and macOS refuses to open

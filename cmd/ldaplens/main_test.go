@@ -41,7 +41,7 @@ func TestParseArgs(t *testing.T) {
 	want := config{
 		listen: "0.0.0.0:9000", basePath: "/ldap", dataDir: "/data",
 		allowedHosts: []string{"ldap.example.com", "ui.local"}, sessionIdle: 30 * time.Minute,
-		sessionMaxAge: 8 * time.Hour,
+		sessionMaxAge: 8 * time.Hour, logFormat: "auto",
 	}
 	if diff := cmp.Diff(want, got, cmp.AllowUnexported(config{})); diff != "" {
 		t.Errorf("parseArgs() mismatch (-want +got):\n%s", diff)

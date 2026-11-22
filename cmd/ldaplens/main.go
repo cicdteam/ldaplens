@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -70,6 +71,8 @@ type config struct {
 	notice        string
 	noticeColor   string
 	showVersion   bool
+	logFormat     string
+	noBrowser     bool
 
 	trustedProxies []netip.Prefix
 }
@@ -139,6 +142,13 @@ func parseArgs(args []string, getenv func(string) string, usage io.Writer) (conf
 			maxAgeErr = fmt.Errorf("LDAPLENS_SESSION_MAX_AGE %q: want a duration like 8h", v)
 		}
 	}
+	noBrowser := false
+	var noBrowserErr error
+	if v := getenv("LDAPLENS_NO_BROWSER"); v != "" {
+		if noBrowser, noBrowserErr = strconv.ParseBool(v); noBrowserErr != nil {
+			noBrowserErr = fmt.Errorf("LDAPLENS_NO_BROWSER %q: want true or false", v)
+		}
+	}
 	var hosts, proxies string
 	fs := flag.NewFlagSet("ldaplens", flag.ContinueOnError)
 	fs.SetOutput(usage)
@@ -165,6 +175,9 @@ func parseArgs(args []string, getenv func(string) string, usage io.Writer) (conf
 	fs.BoolVar(&c.secureCookies, "secure-cookies", secure, "mark cookies Secure on every request; TLS and X-Forwarded-Proto: https do so without it (env LDAPLENS_SECURE_COOKIES)")
 	fs.StringVar(&c.noticeColor, "notice-color", env("LDAPLENS_NOTICE_COLOR", ""), "background of the notice strip, #rgb or #rrggbb; the text is black or white, whichever reads better (env LDAPLENS_NOTICE_COLOR)")
 	fs.StringVar(&c.notice, "notice", env("LDAPLENS_NOTICE", ""), "plain-text message shown above the header on every page once the access token is accepted, at most 300 characters (env LDAPLENS_NOTICE)")
+	fs.StringVar(&c.logFormat, "log-format", env("LDAPLENS_LOG_FORMAT", "auto"),
+		"console (for a person at a terminal), text (structured, for collectors) or auto: console when stdout is a terminal (env LDAPLENS_LOG_FORMAT)")
+	fs.BoolVar(&c.noBrowser, "no-browser", noBrowser, "local mode: do not open the login link in a browser at startup (env LDAPLENS_NO_BROWSER)")
 	fs.BoolVar(&c.showVersion, "version", false, "print the version and exit")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
@@ -185,6 +198,12 @@ func parseArgs(args []string, getenv func(string) string, usage io.Writer) (conf
 	}
 	if secureErr != nil {
 		return config{}, secureErr
+	}
+	if noBrowserErr != nil {
+		return config{}, noBrowserErr
+	}
+	if !slices.Contains(logFormats, c.logFormat) {
+		return config{}, fmt.Errorf("--log-format %q: want %s", c.logFormat, strings.Join(logFormats, ", "))
 	}
 	if idleErr != nil {
 		return config{}, idleErr
@@ -372,7 +391,10 @@ func runTo(args []string, stdout io.Writer) error {
 		_, err = fmt.Fprintf(stdout, "ldaplens %s\n", version)
 		return err
 	}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	console := consoleOutput(cfg.logFormat, isTerminal(os.Stdout))
+	// https://no-color.org: any non-empty NO_COLOR turns colors off.
+	color := os.Getenv("NO_COLOR") == ""
+	logger := newLogger(os.Stdout, console, color)
 
 	if cfg.mode == modeLocal && cfg.dataDir == "" {
 		if cfg.dataDir, err = defaultDataDir(os.UserConfigDir); err != nil {
@@ -431,13 +453,21 @@ func runTo(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	logStartup(logger, cfg, ln.Addr().String(), catalog, link)
+	if console {
+		startConsole(os.Stdout, cfg, ln.Addr().String(), catalog, link, color)
+	} else {
+		logStartup(logger, cfg, ln.Addr().String(), catalog, link)
+	}
 
 	// Restore default signal handling once shutdown starts, so a second
 	// Ctrl-C exits immediately.
 	context.AfterFunc(ctx, stop)
 	// ponytail: open LDAP sessions are left to process exit; session has no close-all.
-	return serve(ctx, srv, ln, drainTimeout, logger)
+	err = serve(ctx, srv, ln, drainTimeout, logger)
+	if err == nil && console {
+		fmt.Fprintln(os.Stdout, "\n  "+paintIf(color, "32", "✓")+" Stopped.")
+	}
+	return err
 }
 
 // logStartup logs the listening line, a local mode without a data dir and,
