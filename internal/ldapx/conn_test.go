@@ -1546,3 +1546,54 @@ func TestMemberOfNestedScansInParallel(t *testing.T) {
 		t.Errorf("MemberOf(nested) took %v; one search after another would take %v", elapsed, sequential)
 	}
 }
+
+// TestMembersNestedReadsInParallel checks that Members(nested) reads the
+// member groups of one level at the same time and keeps their order: 40
+// groups, each answered after 50 ms.
+func TestMembersNestedReadsInParallel(t *testing.T) {
+	const groups, delay = 40, 50 * time.Millisecond
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		var mu sync.Mutex // one response at a time on the wire
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			go func() {
+				mu.Lock()
+				defer mu.Unlock()
+				switch s.base {
+				case "": // the group index
+					_ = writeEntry(conn, s.id, "cn=top")
+					for i := range groups {
+						_ = writeEntry(conn, s.id, fmt.Sprintf("cn=g%02d", i))
+					}
+				case "cn=top":
+					var dns []string
+					for i := range groups {
+						dns = append(dns, fmt.Sprintf("cn=g%02d", i))
+					}
+					_ = writeEntry(conn, s.id, s.base, ldap.NewEntryAttribute("member", dns))
+				default: // cn=gNN has one member, uid=uNN
+					mu.Unlock()
+					time.Sleep(delay)
+					mu.Lock()
+					_ = writeEntry(conn, s.id, s.base, ldap.NewEntryAttribute("member", []string{"uid=u" + strings.TrimPrefix(s.base, "cn=g")}))
+				}
+				_ = writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess)
+			}()
+		}
+	})
+	start := time.Now()
+	m, err := fakeConn(t, url).Members(context.Background(), "cn=top", true)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Members(nested) error = %v", err)
+	}
+	if len(m.Refs) != 2*groups || m.Refs[groups] != (Ref{DN: "uid=u00", Via: "cn=g00"}) || m.Refs[2*groups-1] != (Ref{DN: fmt.Sprintf("uid=u%02d", groups-1), Via: fmt.Sprintf("cn=g%02d", groups-1)}) {
+		t.Errorf("Members(nested) = %v; want %d groups then their %d members in order", m.Refs, groups, groups)
+	}
+	if sequential := time.Duration(groups) * delay; elapsed > sequential/2 {
+		t.Errorf("Members(nested) took %v; one read after another would take %v", elapsed, sequential)
+	}
+}
