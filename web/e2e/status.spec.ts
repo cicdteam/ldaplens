@@ -12,6 +12,8 @@ test('status bar: address, transport, server type and the keys of the focused pa
   await expect(status).toContainText('ldap://127.0.0.1:1390')
   await expect(status).toContainText('not encrypted')
   await expect(status.getByText('LDAP', { exact: true })).toBeVisible()
+  // The e2e binary is built without a version, so it reports dev.
+  await expect(status.getByText('ldaplens dev', { exact: true })).toBeVisible()
 
   await page.getByRole('tree', { name: 'Directory tree' }).focus()
   await expect(status).toContainText('expand')

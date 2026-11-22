@@ -3,6 +3,7 @@ import { isEditableTarget, keyLabel } from '../lib/shortcuts'
 import { connectionStatus, type StatusTone } from '../lib/status'
 import { Kbd } from '../ui/Kbd'
 import { useWorkspace } from './context'
+import { useServer } from './queries'
 
 const tones: Record<StatusTone, string> = {
   ok: 'text-ok',
@@ -61,11 +62,15 @@ function focusedPane(readOnly: boolean): Pane {
   return el?.closest('[data-attr]') && isEditableTarget(el as HTMLElement) ? 'value' : 'card'
 }
 
-/** The connection at a glance (address, transport, server type) and the focused pane's keys. */
+/**
+ * The connection at a glance (address, transport, server type), the focused pane's keys and
+ * ldaplens's version.
+ */
 export function StatusBar() {
   const ws = useWorkspace()
   const s = connectionStatus(ws.info)
   const pane = useSyncExternalStore(onFocusChange, () => focusedPane(!!ws.info.readOnly))
+  const version = useServer().data?.version
   return (
     <footer
       aria-label="Connection status"
@@ -81,6 +86,7 @@ export function StatusBar() {
           </span>
         ))}
       </span>
+      {version && <span>ldaplens {version}</span>}
     </footer>
   )
 }

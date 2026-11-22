@@ -45,13 +45,14 @@ func TestProbes(t *testing.T) {
 	}
 }
 
-// TestServerModeAndNotice checks the mode and the notice, which is left out
-// when empty.
+// TestServerModeAndNotice checks the mode, the version and the notice, the
+// last two left out when empty.
 func TestServerModeAndNotice(t *testing.T) {
 	for _, tc := range []struct {
 		server      bool
 		notice      string
 		noticeColor string
+		version     string
 		want        string
 	}{
 		{server: false, want: `{"mode":"local"}`},
@@ -61,8 +62,9 @@ func TestServerModeAndNotice(t *testing.T) {
 		{server: true, notice: "Public demo", noticeColor: "#f59e0b", want: `{"mode":"server","notice":"Public demo","noticeColor":"#f59e0b"}`},
 		// A color without a notice colors nothing.
 		{server: true, noticeColor: "#f59e0b", want: `{"mode":"server"}`},
+		{server: false, version: "v1.7.3", want: `{"mode":"local","version":"v1.7.3"}`},
 	} {
-		env := newTestEnvWith(t, Options{Server: tc.server, Notice: tc.notice, NoticeColor: tc.noticeColor})
+		env := newTestEnvWith(t, Options{Server: tc.server, Notice: tc.notice, NoticeColor: tc.noticeColor, Version: tc.version})
 		rec := env.do(t, http.MethodGet, "/api/server", "")
 		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != tc.want {
 			t.Errorf("Server %v, Notice %q: GET /api/server = %d %s, want 200 %s", tc.server, tc.notice, rec.Code, got, tc.want)

@@ -132,8 +132,8 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 // term is one attribute=value assertion of a membership scan.
 type term struct{ attr, value string }
 
-// scanParallelism is how many membership scans of one nesting level run at
-// once on the connection. One after another, a member of a thousand groups
+// scanParallelism is how many membership scans or member reads of one
+// nesting level run at once on the connection. One after another, a member of a thousand groups
 // over a VPN waited minutes for the next level.
 const scanParallelism = 8
 
@@ -149,18 +149,26 @@ type levelScan struct {
 // time, and returns the results in frontier's order.
 func (c *Conn) scanLevel(ctx context.Context, frontier []string, terms func(string) []term) []levelScan {
 	out := make([]levelScan, len(frontier))
+	inParallel(len(frontier), func(i int) {
+		r := &out[i]
+		r.groups, r.truncated, r.skipped, r.err = c.groupsListing(ctx, terms(frontier[i]))
+	})
+	return out
+}
+
+// inParallel calls f(0) to f(n-1), scanParallelism at a time, and returns
+// once all have returned.
+func inParallel(n int, f func(i int)) {
 	sem := make(chan struct{}, scanParallelism)
 	var wg sync.WaitGroup
-	for i, member := range frontier {
+	for i := range n {
 		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			r := &out[i]
-			r.groups, r.truncated, r.skipped, r.err = c.groupsListing(ctx, terms(member))
+			f(i)
 		})
 	}
 	wg.Wait()
-	return out
 }
 
 // groupsListing returns the groups under the base DN that match any of
@@ -274,13 +282,17 @@ func (c *Conn) Members(ctx context.Context, dn string, nested bool) (Membership,
 			m.Truncated = true // the groups in frontier are not read
 			break
 		}
-		var next []string
-		for _, group := range frontier {
-			members, err := c.memberValues(ctx, group)
+		values := make([][]string, len(frontier))
+		errs := make([]error, len(frontier))
+		inParallel(len(frontier), func(i int) { values[i], errs[i] = c.memberValues(ctx, frontier[i]) })
+		for _, err := range errs {
 			if err != nil {
 				return Membership{}, err
 			}
-			for _, member := range members {
+		}
+		var next []string
+		for i, group := range frontier {
+			for _, member := range values[i] {
 				if seen[normDN(member)] {
 					continue
 				}

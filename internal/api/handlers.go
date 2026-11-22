@@ -47,6 +47,8 @@ type server struct {
 	notice string
 	// noticeColor is Options.NoticeColor.
 	noticeColor string
+	// version is Options.Version.
+	version string
 }
 
 // mode tells the UI the mode, so that it hides what server mode does not
@@ -55,6 +57,9 @@ func (s *server) mode(w http.ResponseWriter, _ *http.Request) {
 	resp := map[string]string{"mode": "local"}
 	if s.serverMode {
 		resp["mode"] = "server"
+	}
+	if s.version != "" {
+		resp["version"] = s.version
 	}
 	if s.notice != "" {
 		resp["notice"] = s.notice

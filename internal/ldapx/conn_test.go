@@ -1546,3 +1546,148 @@ func TestMemberOfNestedScansInParallel(t *testing.T) {
 		t.Errorf("MemberOf(nested) took %v; one search after another would take %v", elapsed, sequential)
 	}
 }
+
+// TestMembersNestedReadsInParallel checks that Members(nested) reads the
+// member groups of one level at the same time and keeps their order: 40
+// groups, each answered after 50 ms.
+func TestMembersNestedReadsInParallel(t *testing.T) {
+	const groups, delay = 40, 50 * time.Millisecond
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		var mu sync.Mutex // one response at a time on the wire
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			go func() {
+				mu.Lock()
+				defer mu.Unlock()
+				switch s.base {
+				case "": // the group index
+					_ = writeEntry(conn, s.id, "cn=top")
+					for i := range groups {
+						_ = writeEntry(conn, s.id, fmt.Sprintf("cn=g%02d", i))
+					}
+				case "cn=top":
+					var dns []string
+					for i := range groups {
+						dns = append(dns, fmt.Sprintf("cn=g%02d", i))
+					}
+					_ = writeEntry(conn, s.id, s.base, ldap.NewEntryAttribute("member", dns))
+				default: // cn=gNN has one member, uid=uNN
+					mu.Unlock()
+					time.Sleep(delay)
+					mu.Lock()
+					_ = writeEntry(conn, s.id, s.base, ldap.NewEntryAttribute("member", []string{"uid=u" + strings.TrimPrefix(s.base, "cn=g")}))
+				}
+				_ = writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess)
+			}()
+		}
+	})
+	start := time.Now()
+	m, err := fakeConn(t, url).Members(context.Background(), "cn=top", true)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Members(nested) error = %v", err)
+	}
+	if len(m.Refs) != 2*groups || m.Refs[groups] != (Ref{DN: "uid=u00", Via: "cn=g00"}) || m.Refs[2*groups-1] != (Ref{DN: fmt.Sprintf("uid=u%02d", groups-1), Via: fmt.Sprintf("cn=g%02d", groups-1)}) {
+		t.Errorf("Members(nested) = %v; want %d groups then their %d members in order", m.Refs, groups, groups)
+	}
+	if sequential := time.Duration(groups) * delay; elapsed > sequential/2 {
+		t.Errorf("Members(nested) took %v; one read after another would take %v", elapsed, sequential)
+	}
+}
+
+// TestSearchSplitsRefusedOr checks that a search whose OR filter the server
+// refuses (OpenDJ answers result 50 when one part is unindexed) runs each
+// part alone, merges their entries without duplicates and names the
+// attributes of the parts the server refused too, but for those its schema
+// does not define, which match nothing anyway.
+func TestSearchSplitsRefusedOr(t *testing.T) {
+	serve := func(refuse func(filter string) bool) func(int32, net.Conn) {
+		return func(_ int32, conn net.Conn) {
+			for {
+				s, err := readSearch(conn)
+				if err != nil {
+					return
+				}
+				code := int64(ldap.LDAPResultSuccess)
+				switch {
+				case s.base != "dc=x": // the schema read
+				case refuse(s.filter):
+					code = ldap.LDAPResultInsufficientAccessRights
+				case s.filter == "(cn=*a*)":
+					err = errors.Join(writeEntry(conn, s.id, "cn=x"), writeEntry(conn, s.id, "cn=y"))
+				case s.filter == "(mail=a*)":
+					err = errors.Join(writeEntry(conn, s.id, "cn=y"), writeEntry(conn, s.id, "cn=z"))
+				}
+				if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, code) != nil {
+					return
+				}
+			}
+		}
+	}
+	const filter = "(|(cn=*a*)(uid=a*)(sAMAccountName=a*)(mail=a*))"
+	unindexed := func(f string) bool {
+		return strings.HasPrefix(f, "(|") || f == "(uid=a*)" || f == "(sAMAccountName=a*)"
+	}
+	dns := func(p Page) []string {
+		var out []string
+		for _, e := range p.Entries {
+			out = append(out, e.DN)
+		}
+		return out
+	}
+
+	u, _ := fakeServer(t, serve(unindexed))
+	c := fakeConn(t, u)
+	c.schema = schema.Parse([]string{
+		"( 2.5.4.3 NAME 'cn' )", "( 0.9.2342.19200300.100.1.1 NAME 'uid' )", "( 0.9.2342.19200300.100.1.3 NAME 'mail' )",
+	}, nil, nil)
+	tests := []struct {
+		limit int
+		want  []string
+		more  bool
+	}{
+		{limit: 100, want: []string{"cn=x", "cn=y", "cn=z"}},
+		{limit: 2, want: []string{"cn=x", "cn=y"}, more: true},
+	}
+	for _, tc := range tests {
+		p, err := c.Search(context.Background(), SearchRequest{BaseDN: "dc=x", Filter: filter, SizeLimit: tc.limit})
+		if err != nil {
+			t.Fatalf("Search(%s, limit %d) error = %v", filter, tc.limit, err)
+		}
+		if diff := cmp.Diff(tc.want, dns(p)); diff != "" || p.More != tc.more {
+			t.Errorf("Search(%s, limit %d) more %v, want %v; entries (-want +got):\n%s", filter, tc.limit, p.More, tc.more, diff)
+		}
+		if diff := cmp.Diff([]string{"uid"}, p.Skipped); diff != "" {
+			t.Errorf("Search(%s, limit %d) skipped (-want +got):\n%s", filter, tc.limit, diff)
+		}
+	}
+
+	// Every part refused: the refusal is the error.
+	u, _ = fakeServer(t, serve(func(string) bool { return true }))
+	c = fakeConn(t, u)
+	if _, err := c.Search(context.Background(), SearchRequest{BaseDN: "dc=x", Filter: filter}); !ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights) {
+		t.Errorf("Search(every part refused) error = %v, want insufficientAccessRights", err)
+	}
+}
+
+func TestPartName(t *testing.T) {
+	for filter, want := range map[string]string{
+		"(cn=*a*)":       "cn",
+		"(uid=a)":        "uid",
+		"(mail=*)":       "mail",
+		"(age>=3)":       "age",
+		"(&(a=1)(b=2))":  "(&(a=1)(b=2))",
+		"(cn:dn:=admin)": "(cn:dn:=admin)",
+	} {
+		p, err := ldap.CompileFilter(filter)
+		if err != nil {
+			t.Fatalf("CompileFilter(%s) error = %v", filter, err)
+		}
+		if got := partName(p, filter); got != want {
+			t.Errorf("partName(%s) = %q, want %q", filter, got, want)
+		}
+	}
+}

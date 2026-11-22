@@ -90,6 +90,15 @@ then 5000. Past 5000, narrow the filter or the base. A search the server cut
 with its own size or time limit, or one past ldaplens's cap of 64 MiB of
 values, shows what arrived, marked "The search stopped early".
 
+Some servers (OpenDJ, 389 DS) refuse a search they cannot answer from an index
+unless the user holds a special privilege, and an OR filter, such as the
+header's quick search, is refused as soon as one part is unindexed. ldaplens
+then runs each part of the OR alone, lists what the server answers, and says
+"Not searched by" and the attributes of the parts it refused (on OpenDJ,
+usually `displayName`): entries that match only those are missing. Attributes
+the server's schema does not define, such as `sAMAccountName` off Active
+Directory, match nothing and are not named.
+
 ### Entry card
 
 The header shows the entry's name and kind, its DN as breadcrumbs with a
@@ -143,8 +152,9 @@ nested, so these rows are not removed from here; open the group instead.
 
 While changes are staged, a bar above the status bar shows how many, for
 which profile and server, with Discard and Review. The status bar shows the
-server address, whether the connection is encrypted, the server type and the
-keys that act in the focused pane.
+server address, whether the connection is encrypted, the server type, the
+keys that act in the focused pane and, at the right end, the ldaplens version
+(as `ldaplens --version` prints it).
 
 ### Shortcuts
 

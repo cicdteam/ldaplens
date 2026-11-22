@@ -331,6 +331,11 @@ function Listing({ search }: { search: SearchState }) {
           The search stopped early (a size, time or response limit). Showing what arrived.
         </Banner>
       )}
+      {!!q.data?.skipped?.length && (
+        <Banner tone="info">
+          Not searched by {q.data.skipped.join(', ')}: the server refuses unindexed searches.
+        </Banner>
+      )}
       {!!q.data?.referrals?.length && (
         <Banner tone="info">
           Referrals (not followed):{' '}

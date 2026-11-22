@@ -447,7 +447,7 @@ func runTo(args []string, stdout io.Writer) error {
 		Catalog: catalog, Dial: dial, Sessions: sessions, Shared: shared,
 		AllowedHosts: cfg.allowedHosts, AuthToken: cfg.authToken, BasePath: cfg.basePath,
 		SecureCookies: cfg.secureCookies, TrustedProxies: cfg.trustedProxies,
-		Notice: cfg.notice, NoticeColor: cfg.noticeColor, Server: cfg.mode == modeServer, UI: web.Dist(), Logger: logger,
+		Notice: cfg.notice, NoticeColor: cfg.noticeColor, Server: cfg.mode == modeServer, Version: version, UI: web.Dist(), Logger: logger,
 	}))
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.listen)
 	if err != nil {
