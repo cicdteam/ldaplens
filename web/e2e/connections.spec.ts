@@ -11,14 +11,25 @@ const AD_BASE = 'DC=corp,DC=example,DC=test'
 const row = (page: Page, profile: string) =>
   page.locator('main li').filter({ has: profileButton(page, profile) })
 
+type Form = ReturnType<Page['getByRole']>
+
+/** The server step: a pasted URL sets host and port; the test LDAP has no TLS. */
+async function serverStep(form: Form, url: string, baseDN?: string) {
+  await form.getByLabel('Server', { exact: true }).fill(url)
+  await form.getByRole('radio', { name: /^None/ }).click()
+  if (baseDN) await form.getByLabel(/^Base DN/).fill(baseDN)
+  await form.getByRole('button', exact('Next')).click()
+}
+
 test('a saved connection: create, edit to read-only, name clash, connect', async ({ page }) => {
   await page.goto('./')
   await page.getByRole('button', exact('New connection')).click()
   let form = page.getByRole('dialog', exact('New connection'))
-  await form.getByLabel('Name').fill('lab')
-  await form.getByLabel('URL').fill('ldap://127.0.0.1:1390')
-  await form.getByLabel(/^Base DN/).fill('dc=example,dc=org')
-  await form.getByLabel(/^Bind DN/).fill('cn=admin,dc=example,dc=org')
+  await serverStep(form, 'ldap://127.0.0.1:1390', 'dc=example,dc=org')
+  await form.getByLabel('As one fixed DN').check()
+  await form.getByLabel('Bind DN').fill('cn=admin,dc=example,dc=org')
+  await form.getByRole('button', exact('Next')).click()
+  await form.getByLabel(/^Name/).fill('lab')
   await form.getByRole('button', exact('Save')).click()
   await expect(form).toHaveCount(0)
   const lab = row(page, 'lab')
@@ -28,9 +39,16 @@ test('a saved connection: create, edit to read-only, name clash, connect', async
 
   await lab.getByRole('button', exact('Edit lab')).click()
   form = page.getByRole('dialog', exact('Edit lab'))
-  await expect(form.getByLabel('Name')).toHaveValue('lab')
-  await expect(form.getByLabel('Name')).toHaveAttribute('readonly', '')
-  await form.getByLabel('Read-only').check()
+  // Edit opens on the server step, every step reachable, the saved values back in place.
+  await expect(form.getByLabel('Server', { exact: true })).toHaveValue('127.0.0.1')
+  await expect(form.getByLabel('Port')).toHaveValue('1390')
+  await expect(form.getByRole('radio', { name: /^None/ })).toHaveAttribute('aria-checked', 'true')
+  await form.getByRole('button', exact('Sign in')).click()
+  await expect(form.getByLabel('Bind DN')).toHaveValue('cn=admin,dc=example,dc=org')
+  await form.getByRole('button', exact('Name')).click()
+  await expect(form.getByLabel(/^Name/)).toHaveValue('lab')
+  await expect(form.getByLabel(/^Name/)).toHaveAttribute('readonly', '')
+  await form.getByLabel(/^Read-only/).check()
   await form.getByRole('button', exact('Save')).click()
   await expect(form).toHaveCount(0)
   await expect(lab.getByText('READ-ONLY', { exact: true })).toBeVisible()
@@ -39,8 +57,9 @@ test('a saved connection: create, edit to read-only, name clash, connect', async
   await expect(row(page, 'demo').getByText('yaml', { exact: true })).toBeVisible()
   await page.getByRole('button', exact('New connection')).click()
   form = page.getByRole('dialog', exact('New connection'))
-  await form.getByLabel('Name').fill('demo')
-  await form.getByLabel('URL').fill('ldap://127.0.0.1:1390')
+  await serverStep(form, 'ldap://127.0.0.1:1390')
+  await form.getByRole('button', exact('Next')).click()
+  await form.getByLabel(/^Name/).fill('demo')
   await form.getByRole('button', exact('Save')).click()
   await expect(form.getByRole('alert')).toHaveText(
     'profile is defined in the config file and cannot be changed here: demo',
@@ -106,9 +125,11 @@ test('a saved connection with a label shows the label, the name under it', async
   await page.goto('./')
   await page.getByRole('button', exact('New connection')).click()
   let form = page.getByRole('dialog', exact('New connection'))
-  await form.getByLabel('Name').fill('labeled-lab')
+  await serverStep(form, 'ldap://127.0.0.1:1390')
+  await form.getByLabel('Anonymously').check()
+  await form.getByRole('button', exact('Next')).click()
+  await form.getByLabel(/^Name/).fill('labeled-lab')
   await form.getByLabel(/^Label/).fill('  My test lab  ')
-  await form.getByLabel('URL').fill('ldap://127.0.0.1:1390')
   await form.getByRole('button', exact('Save')).click()
   await expect(form).toHaveCount(0)
   const item = page.getByRole('listitem').filter({ hasText: 'My test lab' })
@@ -117,10 +138,72 @@ test('a saved connection with a label shows the label, the name under it', async
   // The server trimmed it; clearing it brings the name back.
   await item.getByRole('button', exact('Edit My test lab')).click()
   form = page.getByRole('dialog', exact('Edit My test lab'))
+  await form.getByRole('button', exact('Name')).click()
   await expect(form.getByLabel(/^Label/)).toHaveValue('My test lab')
   await form.getByLabel(/^Label/).fill('')
   await form.getByRole('button', exact('Save')).click()
   await expect(form).toHaveCount(0)
   await expect(page.getByRole('button', exact('Edit labeled-lab'))).toBeVisible()
   await expect(page.getByText('My test lab')).toHaveCount(0)
+})
+
+test('a saved connection that asks for a username: the template, its preview, sign in as a person', async ({
+  page,
+}) => {
+  await page.goto('./')
+  await page.getByRole('button', exact('New connection')).click()
+  let form = page.getByRole('dialog', exact('New connection'))
+  // Name is a later step; Next stays off until the server step is filled.
+  await expect(form.getByRole('button', exact('Next'))).toBeDisabled()
+  await expect(form.getByRole('button', exact('Name'))).toBeDisabled()
+  await serverStep(form, 'ldap://127.0.0.1:1390', 'dc=example,dc=org')
+
+  // With my username is the default, its template suggested from the base DN.
+  await expect(form.getByLabel('With my username')).toBeChecked()
+  const template = form.getByLabel(/where the username goes/)
+  await expect(template).toHaveValue('uid={user},ou=people,dc=example,dc=org')
+  await form.getByLabel('Sample username').fill('user001')
+  await expect(
+    form.getByText('uid=user001,ou=people,dc=example,dc=org', { exact: true }),
+  ).toBeVisible()
+  await form.getByRole('button', exact('Active Directory')).click()
+  await expect(template).toHaveValue('{user}@example.org')
+  await template.fill('uid=someone,dc=example,dc=org')
+  await expect(
+    form.getByText('Put {user} in exactly one place, where your username goes.'),
+  ).toBeVisible()
+  await expect(form.getByRole('button', exact('Next'))).toBeDisabled()
+  await form.getByRole('button', exact('OpenLDAP and others')).click()
+  await expect(template).toHaveValue('uid={user},ou=people,dc=example,dc=org')
+  await form.getByRole('button', exact('Next')).click()
+
+  await expect(form.getByLabel(/^Name/)).toHaveValue('127.0.0.1')
+  await form.getByLabel(/^Name/).fill('lab-people')
+  await expect(
+    form.getByText('username and password, signs in as uid={user},ou=people,dc=example,dc=org'),
+  ).toBeVisible()
+  await form.getByRole('button', exact('Save')).click()
+  await expect(form).toHaveCount(0)
+
+  await row(page, 'lab-people').getByRole('button', exact('Edit lab-people')).click()
+  form = page.getByRole('dialog', exact('Edit lab-people'))
+  await form.getByRole('button', exact('Sign in')).click()
+  await expect(form.getByLabel('With my username')).toBeChecked()
+  await expect(form.getByLabel(/where the username goes/)).toHaveValue(
+    'uid={user},ou=people,dc=example,dc=org',
+  )
+  await form.getByRole('button', exact('Cancel')).click()
+
+  await profileButton(page, 'lab-people').click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Username').fill('user001')
+  const password = dialog.getByLabel('Password', { exact: true })
+  await password.fill('secret001')
+  await password.press('Enter')
+  await expect(page).toHaveURL(/\/c\/lab-people(?:[/?#]|$)/)
+  await expect(
+    page
+      .locator('header')
+      .getByText('Signed in as uid=user001,ou=people,dc=example,dc=org', { exact: true }),
+  ).toBeVisible()
 })

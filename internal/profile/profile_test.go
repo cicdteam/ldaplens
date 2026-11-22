@@ -4,7 +4,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"net/http"
@@ -281,13 +280,5 @@ connections:
 	}
 	if got := ps[0]; got.BindDNTemplate != "uid={user},ou=people,dc=example,dc=org" || !got.UserLogin() {
 		t.Errorf("Load() = %+v, want bindDNTemplate set", got)
-	}
-
-	var p Profile
-	if err := json.Unmarshal([]byte(`{"name":"x","bindDNTemplate":"{user}@corp.example"}`), &p); err != nil {
-		t.Fatal(err)
-	}
-	if p.BindDNTemplate != "" || p.UserLogin() {
-		t.Errorf("json.Unmarshal() = %+v, want bindDNTemplate empty", p)
 	}
 }

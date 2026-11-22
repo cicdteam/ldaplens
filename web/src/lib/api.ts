@@ -230,8 +230,19 @@ export function profileLabel(p: Pick<Profile, 'name' | 'label'>): string {
  * an editable profile gets here, and local mode sends every field of it.
  */
 export function toProfileInput(p: Profile): ProfileInput {
-  const { name, label, url, startTLS, baseDN, bindDN, caPEM, insecureSkipVerify, color, readOnly } =
-    p
+  const {
+    name,
+    label,
+    url,
+    startTLS,
+    baseDN,
+    bindDN,
+    bindDNTemplate,
+    caPEM,
+    insecureSkipVerify,
+    color,
+    readOnly,
+  } = p
   return {
     name,
     label,
@@ -239,6 +250,7 @@ export function toProfileInput(p: Profile): ProfileInput {
     startTLS: !!startTLS,
     baseDN,
     bindDN,
+    bindDNTemplate,
     caPEM,
     insecureSkipVerify: !!insecureSkipVerify,
     color,

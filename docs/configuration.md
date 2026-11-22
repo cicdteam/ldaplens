@@ -114,8 +114,9 @@ and ldaplens's logs name who made each change, and no service account
 password is stored. It is the recommended setup for a team.
 
 The template contains `{user}` exactly once and cannot be combined with
-`bindDN`, `passwordEnv` or `passwordFile`. It is read from
-`connections.yaml` only; profiles saved in the UI cannot have it.
+`bindDN`, `passwordEnv` or `passwordFile`. In local mode, **New connection**
+sets it too: **With my username** in its Sign in step, which suggests one
+from the base DN and shows the DN a sample username gives.
 
 ```yaml
 connections:
