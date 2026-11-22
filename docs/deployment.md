@@ -20,6 +20,15 @@ curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaple
 
 There is no build for Windows: there use the [Docker image](#run-with-docker).
 
+With [Homebrew](https://brew.sh), on macOS or Linux, the same binaries come
+from the tap [cicdteam/homebrew-tap](https://github.com/cicdteam/homebrew-tap),
+and `brew upgrade` brings new releases:
+
+```sh
+brew install cicdteam/tap/ldaplens
+ldaplens
+```
+
 With no arguments it runs `local`, on `127.0.0.1:8080` (`--listen` changes
 it), and keeps the saved connections and the token in the user config
 directory (`~/.config/ldaplens` on Linux, `~/Library/Application

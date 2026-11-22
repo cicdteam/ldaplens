@@ -40,7 +40,8 @@ curl -fsSL "https://github.com/cicdteam/ldaplens/releases/latest/download/ldaple
 ```
 
 It opens the UI in your browser (or prints the link to open); add a
-directory with **New connection**.
+directory with **New connection**. With Homebrew, on macOS or Linux:
+`brew install cicdteam/tap/ldaplens`, then `ldaplens`.
 The saved connections and the login token stay in your user config
 directory. [Verify the binary](docs/deployment.md#verify-the-binary) before
 you run it.
