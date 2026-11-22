@@ -151,9 +151,13 @@ export function memberOfView(refs: Ref[], entry: Entry, batch: Batch): Membershi
   return rows
 }
 
-/** Why a row cannot be removed here: a nested row comes through another group. '' if direct. */
+/**
+ * Why a row cannot be removed here: a nested row comes through another group, and one the server
+ * lists in isMemberOf or memberOf may be nested too. '' if direct.
+ */
 export function inheritedHint(r: Ref): string {
-  return r.via ? `Inherited through ${r.via}` : ''
+  if (r.via) return `Inherited through ${r.via}`
+  return r.source ? `Listed in the entry's ${r.source}: open the group to change it` : ''
 }
 
 /** Groups whose cn contains text, as "Add to group…" suggests them. */

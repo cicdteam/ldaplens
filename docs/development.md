@@ -7,7 +7,9 @@ Building, testing and the Samba AD stand-in for Active Directory.
 `make check` runs Go fmt, vet, lint, vuln and unit tests plus the web checks
 (`make web-check`: typecheck, ESLint, Prettier, Vitest, npm audit of the
 production dependencies).
-`make test-integration` needs Docker; it runs OpenLDAP and Samba AD. `make
+`make test-integration` needs Docker; it runs OpenLDAP and Samba AD, and
+OpenDJ for Member of as a plain user (no `unindexed-search` privilege, with
+its `isMemberOf`). `make
 web` builds the UI into `web/dist`, which the Go binary embeds (`make build`
 does both).
 

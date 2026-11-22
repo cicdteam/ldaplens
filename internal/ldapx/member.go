@@ -17,6 +17,10 @@ import (
 type Ref struct {
 	DN  string `json:"dn"`
 	Via string `json:"via,omitempty"`
+	// Source names the entry attribute the server keeps (isMemberOf or
+	// memberOf) that listed a group the searches did not find; such a
+	// membership may be direct or nested.
+	Source string `json:"source,omitempty"`
 }
 
 // Membership is the answer to a membership query. Truncated is set when a
@@ -50,7 +54,7 @@ const groupFilter = "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames
 // truncated), and survives membership cycles; memberUid names users, not
 // groups, so only the first level asks for it.
 func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership, error) {
-	e, err := c.rawEntry(ctx, dn, []string{"uid"})
+	e, err := c.rawEntry(ctx, dn, []string{"uid", "isMemberOf", "memberOf"})
 	if err != nil {
 		return Membership{}, err
 	}
@@ -97,6 +101,23 @@ func (c *Conn) MemberOf(ctx context.Context, dn string, nested bool) (Membership
 			break
 		}
 		frontier = next
+	}
+	// The groups the server itself lists for the entry: they include groups
+	// a search cannot reach (an ACI, an unindexed attribute, a dynamic
+	// group). ponytail: AD ranges a memberOf over 1500 values; not fetched
+	// here, as AD's member search finds those groups anyway.
+	for _, attr := range []string{"isMemberOf", "memberOf"} {
+		for _, g := range e.GetEqualFoldAttributeValues(attr) {
+			if seen[normDN(g)] {
+				continue
+			}
+			if len(m.Refs) == maxRefs {
+				m.Truncated = true
+				return m, nil
+			}
+			seen[normDN(g)] = true
+			m.Refs = append(m.Refs, Ref{DN: g, Source: attr})
+		}
 	}
 	return m, nil
 }

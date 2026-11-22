@@ -281,6 +281,9 @@ describe('hints and filters', () => {
       `Inherited through cn=sub,${OU}`,
     )
     expect(inheritedHint({ dn: `uid=a,${OU}` })).toBe('')
+    expect(inheritedHint({ dn: `cn=g,${OU}`, source: 'isMemberOf' })).toBe(
+      "Listed in the entry's isMemberOf: open the group to change it",
+    )
   })
   it('finds groups by cn, escaped', () => {
     expect(groupFilter(' a*(b) ')).toBe(

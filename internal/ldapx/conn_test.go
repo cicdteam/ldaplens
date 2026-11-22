@@ -1459,3 +1459,46 @@ func TestMemberOfUnindexedAttribute(t *testing.T) {
 		t.Errorf("MemberOf() with every attribute refused error = %v, want result 50", err)
 	}
 }
+
+// TestMemberOfServerAttribute checks that MemberOf adds the groups the
+// server lists in the entry's isMemberOf or memberOf (OpenDJ, 389 DS, AD,
+// OpenLDAP's memberof overlay) that its searches did not find, such as
+// groups the user may not search, marked with the attribute they came from,
+// once each, in direct and nested mode alike.
+func TestMemberOfServerAttribute(t *testing.T) {
+	url, _ := fakeServer(t, func(_ int32, conn net.Conn) {
+		for {
+			s, err := readSearch(conn)
+			if err != nil {
+				return
+			}
+			switch {
+			case s.base != "": // the entry read
+				err = writeEntry(conn, s.id, s.base,
+					&ldap.EntryAttribute{Name: "uid", Values: []string{"a"}},
+					&ldap.EntryAttribute{Name: "isMemberOf", Values: []string{"CN=G1", "cn=hidden,ou=x"}},
+					&ldap.EntryAttribute{Name: "memberOf", Values: []string{"cn=hidden,ou=x", "cn=other"}})
+			case strings.Contains(s.filter, "uid=a"): // groups listing the entry
+				err = writeEntry(conn, s.id, "cn=g1")
+			}
+			if err != nil || writeResult(conn, s.id, ldap.ApplicationSearchResultDone, ldap.LDAPResultSuccess) != nil {
+				return
+			}
+		}
+	})
+	c := fakeConn(t, url)
+	want := Membership{Refs: []Ref{
+		{DN: "cn=g1"},
+		{DN: "cn=hidden,ou=x", Source: "isMemberOf"},
+		{DN: "cn=other", Source: "memberOf"},
+	}}
+	for _, nested := range []bool{false, true} {
+		m, err := c.MemberOf(context.Background(), "uid=a", nested)
+		if err != nil {
+			t.Fatalf("MemberOf(nested %v) error = %v", nested, err)
+		}
+		if diff := cmp.Diff(want, m); diff != "" {
+			t.Errorf("MemberOf(nested %v) mismatch (-want +got):\n%s", nested, diff)
+		}
+	}
+}

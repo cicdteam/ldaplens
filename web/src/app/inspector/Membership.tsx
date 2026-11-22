@@ -278,14 +278,23 @@ function RefList({
                   )}
                 >
                   <DNButton dn={r.dn} onSelect={ws.select} />
-                  {nested &&
+                  {r.source ? (
+                    <span
+                      className="shrink-0 text-xs text-muted"
+                      title={`The server lists this group in the entry's ${r.source}; it may be a direct or a nested membership.`}
+                    >
+                      from {r.source}
+                    </span>
+                  ) : (
+                    nested &&
                     (r.via ? (
                       <span className="flex min-w-0 items-center gap-1 text-xs text-muted">
                         via <DNButton dn={r.via} onSelect={ws.select} />
                       </span>
                     ) : (
                       <span className="text-xs text-muted">direct</span>
-                    ))}
+                    ))
+                  )}
                 </div>
                 {editable &&
                   (undo ? (
